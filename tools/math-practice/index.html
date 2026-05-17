@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Math Sprint · jiduojiang.com</title>
+
+<link rel="stylesheet" href="/shared/fonts.css">
+<link rel="stylesheet" href="/shared/tokens.css">
+<link rel="stylesheet" href="/shared/components.css">
+
+<style>
+  .proj { --crayon: var(--c5); }
+  .proj__emoji { --card-bg: var(--crayon); }
+
+  /* Hide whatever isn't the active state. */
+  [data-state] > section { display: none; }
+  [data-state="select"]  > section[data-view="select"]  { display: block; }
+  [data-state="play"]    > section[data-view="play"]    { display: block; }
+  [data-state="done"]    > section[data-view="done"]    { display: block; }
+  [data-state="history"] > section[data-view="history"] { display: block; }
+
+  /* ─── select view ─────────────────────────────── */
+
+  .select__sub {
+    color: var(--ink-soft);
+    margin: 4px 0 18px;
+  }
+
+  .duration-row {
+    display: flex; flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 28px;
+    align-items: center;
+  }
+  .duration-row__label {
+    font-family: var(--f-mono);
+    font-size: var(--t-xs);
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-right: 4px;
+  }
+  .dur-pill {
+    appearance: none;
+    font: inherit;
+    font-family: var(--f-body);
+    font-weight: 600;
+    font-size: var(--t-sm);
+    padding: 8px 16px;
+    border-radius: var(--r-pill);
+    border: 2px solid var(--ink);
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+    box-shadow: 3px 3px 0 var(--ink);
+    transition: transform var(--dur-fast), box-shadow var(--dur-fast);
+  }
+  .dur-pill:hover  { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--ink); }
+  .dur-pill:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+  .dur-pill.is-active { background: var(--crayon); color: white; }
+
+  .mode-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    margin-top: 8px;
+  }
+  @media (max-width: 700px) {
+    .mode-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .mode {
+    appearance: none;
+    font: inherit; color: inherit; text-align: left;
+    background: var(--surface);
+    border: var(--stroke);
+    border-radius: var(--r-xl);
+    padding: 20px 18px;
+    cursor: pointer;
+    box-shadow: var(--shadow-stamp);
+    transition: transform var(--dur) var(--ease-bounce), box-shadow var(--dur);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .mode:hover  { transform: translate(-2px,-3px); box-shadow: 6px 7px 0 var(--ink); }
+  .mode:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ink); }
+  .mode__sample {
+    font-family: var(--f-display);
+    font-size: var(--t-xl);
+    line-height: 1;
+  }
+  .mode__name {
+    font-family: var(--f-mono);
+    font-size: var(--t-xs);
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  .select__footer {
+    margin-top: 28px;
+    display: flex; justify-content: flex-end;
+  }
+  .link-pill {
+    background: transparent;
+    border: 2px dashed var(--ink);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-weight: 600;
+    font-size: var(--t-sm);
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: var(--r-pill);
+    cursor: pointer;
+  }
+  .link-pill:hover { background: var(--bg); }
+
+  /* ─── play view ───────────────────────────────── */
+
+  .play__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 3px dashed var(--paper-line);
+    padding-bottom: 16px;
+    margin-bottom: 40px;
+    font-family: var(--f-display);
+    font-size: var(--t-xl);
+  }
+  .timer {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+  .timer__dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--c4);
+  }
+  .timer.is-low { color: var(--c1); }
+  .timer.is-low .timer__dot {
+    background: var(--c1);
+    animation: blink 1s steps(2, end) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .score-tag {
+    background: var(--c2);
+    border: var(--stroke);
+    border-radius: var(--r-pill);
+    padding: 4px 18px;
+    font-size: var(--t-lg);
+    box-shadow: var(--shadow-stamp);
+  }
+
+  .question {
+    display: flex; align-items: center; justify-content: center;
+    gap: 18px;
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: 96px;
+    line-height: 1;
+    letter-spacing: -.02em;
+    padding: 48px 12px;
+    border-radius: var(--r-2xl);
+    transition: background-color .15s var(--ease-out);
+    font-variant-numeric: tabular-nums;
+  }
+  .question.is-correct { background: rgba(97, 201, 122, .25); }
+
+  .question__text { color: var(--ink); }
+  .question__eq { color: var(--ink-soft); }
+  .question__input {
+    font: inherit;
+    color: var(--ink);
+    background: transparent;
+    border: none;
+    outline: none;
+    width: 3ch;
+    min-width: 1.5ch;
+    text-align: left;
+    padding: 0;
+    border-bottom: 6px solid var(--crayon);
+    border-radius: 0;
+    caret-color: var(--crayon);
+  }
+  .question__input::placeholder {
+    color: var(--ink-soft);
+    opacity: .35;
+  }
+  .question__input:focus-visible { outline: none; }
+
+  @media (max-width: 600px) {
+    .question { font-size: 64px; padding: 32px 8px; }
+  }
+
+  /* ─── done view ───────────────────────────────── */
+
+  .done-stage { text-align: center; padding: 24px 0 8px; }
+  .done__hero {
+    font-family: var(--f-display);
+    font-size: 96px;
+    line-height: 1;
+    margin: 12px 0 4px;
+    color: var(--c5);
+  }
+  .done__big {
+    font-family: var(--f-display);
+    font-size: var(--t-h2);
+    margin-bottom: 8px;
+  }
+  .done__sub {
+    color: var(--ink-soft);
+    font-family: var(--f-mono);
+    font-size: var(--t-sm);
+    margin-bottom: 28px;
+  }
+  .done__sub b { color: var(--c1); }
+  .done__row { display: flex; justify-content: center; gap: 14px; }
+  .done__hint {
+    margin-top: 18px;
+    font-family: var(--f-mono);
+    font-size: var(--t-xs);
+    color: var(--ink-soft);
+  }
+  .done__hint kbd {
+    font-family: var(--f-mono);
+    background: var(--bg);
+    border: 1.5px solid var(--ink);
+    border-radius: 4px;
+    padding: 1px 6px;
+    box-shadow: 1px 1px 0 var(--ink);
+  }
+
+  /* ─── history view ────────────────────────────── */
+
+  .history-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .history-head h2 {
+    font-family: var(--f-display);
+    font-size: var(--t-h2);
+    margin: 0;
+  }
+
+  .best-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  @media (max-width: 700px) {
+    .best-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .best-card {
+    background: var(--surface);
+    border: var(--stroke);
+    border-radius: var(--r-lg);
+    padding: 14px 16px;
+    box-shadow: var(--shadow-stamp);
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .best-card__name {
+    font-family: var(--f-mono);
+    font-size: var(--t-xs);
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+  .best-card__score {
+    font-family: var(--f-display);
+    font-size: var(--t-xl);
+    color: var(--c5);
+  }
+  .best-card__score--empty { color: var(--ink-soft); opacity: .5; }
+  .best-card__date {
+    font-family: var(--f-mono);
+    font-size: var(--t-xs);
+    color: var(--ink-soft);
+  }
+
+  .session-list {
+    list-style: none;
+    padding: 0; margin: 0;
+    border-top: 3px dashed var(--paper-line);
+  }
+  .session-list li {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 14px;
+    align-items: center;
+    padding: 12px 4px;
+    border-bottom: 1.5px dashed var(--paper-line);
+    font-family: var(--f-body);
+    font-size: var(--t-base);
+  }
+  .session-list li:last-child { border-bottom: none; }
+  .session-list .s-mode { font-weight: 600; }
+  .session-list .s-score {
+    font-family: var(--f-display);
+    font-size: var(--t-md);
+    color: var(--c5);
+    min-width: 4ch; text-align: right;
+  }
+  .session-list .s-date {
+    font-family: var(--f-mono);
+    font-size: var(--t-xs);
+    color: var(--ink-soft);
+    min-width: 13ch; text-align: right;
+  }
+  .session-list--empty {
+    padding: 24px 4px;
+    color: var(--ink-soft);
+    font-style: italic;
+    text-align: center;
+  }
+
+  .history-actions {
+    margin-top: 22px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .clear-link {
+    background: none; border: none; cursor: pointer;
+    font: inherit; color: var(--ink-soft);
+    font-family: var(--f-mono);
+    font-size: var(--t-xs);
+    text-decoration: underline;
+  }
+  .clear-link:hover { color: var(--c1); }
+</style>
+</head>
+<body>
+
+<main class="proj">
+  <header class="topbar">
+    <a class="brand" href="/">
+      <div class="brand-mark">J</div>
+      <div>
+        <div class="brand-name">jiduojiang<span class="dot">.</span>com</div>
+        <div class="brand-sub">// back to all projects</div>
+      </div>
+    </a>
+    <a class="proj__back" href="/">← home</a>
+  </header>
+
+  <div class="proj__head">
+    <div class="proj__emoji">🧮</div>
+    <div>
+      <h1 class="proj__title" style="font-size: var(--t-h1)">Math Sprint</h1>
+      <p style="color: var(--ink-soft); margin-top: 6px;">A timed run. One question at a time. Type the answer.</p>
+    </div>
+  </div>
+
+  <div class="proj__board" id="board" data-state="select">
+
+    <!-- ─── SELECT ─────────────────────────────── -->
+    <section data-view="select">
+      <p class="select__sub">Pick what to practice.</p>
+
+      <div class="duration-row" id="durationRow">
+        <span class="duration-row__label">how long</span>
+        <!-- duration pills injected here -->
+      </div>
+
+      <div class="mode-grid" id="modeGrid"></div>
+
+      <div class="select__footer">
+        <button class="link-pill" id="goHistory">past scores →</button>
+      </div>
+    </section>
+
+    <!-- ─── PLAY ───────────────────────────────── -->
+    <section data-view="play">
+      <div class="play__top">
+        <span class="timer" id="timer"><span class="timer__dot"></span><span id="timerText">1:00</span></span>
+        <span class="score-tag"><span id="scoreText">0</span></span>
+      </div>
+      <div class="question" id="question">
+        <span class="question__text" id="qText">5 × 8</span>
+        <span class="question__eq">=</span>
+        <input class="question__input"
+               id="qInput"
+               type="text"
+               inputmode="numeric"
+               autocomplete="off"
+               autocorrect="off"
+               spellcheck="false"
+               placeholder="?"
+               aria-label="answer" />
+      </div>
+    </section>
+
+    <!-- ─── DONE ───────────────────────────────── -->
+    <section data-view="done">
+      <div class="done-stage">
+        <div class="done__hero" id="doneScore">0</div>
+        <div class="done__big" id="doneHeadline">You got 0 right!</div>
+        <div class="done__sub">in <b id="doneDuration">1 minute</b> · <span id="doneMode">—</span></div>
+        <div class="done__row">
+          <button class="btn btn--primary" id="doneAgain">▶ go again</button>
+          <button class="btn" id="doneChange">↺ change mode</button>
+        </div>
+        <div class="done__hint">press <kbd>Enter</kbd> for another round</div>
+      </div>
+    </section>
+
+    <!-- ─── HISTORY ────────────────────────────── -->
+    <section data-view="history">
+      <div class="history-head">
+        <h2>Past Scores</h2>
+        <button class="btn" id="historyBack">← back</button>
+      </div>
+      <div class="best-grid" id="bestGrid"></div>
+      <h3 style="font-family: var(--f-display); font-size: var(--t-lg); margin: 0 0 10px;">Recent sprints</h3>
+      <ul class="session-list" id="sessionList"></ul>
+      <div class="history-actions">
+        <button class="clear-link" id="clearHistory">clear all history</button>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script>
+(function () {
+  // ─── small DOM helper ──────────────────────────
+  function el(tag, props, children) {
+    const node = document.createElement(tag);
+    if (props) {
+      for (const k in props) {
+        if (k === "class") node.className = props[k];
+        else if (k === "text") node.textContent = props[k];
+        else if (k === "onClick") node.addEventListener("click", props[k]);
+        else if (k === "dataset") {
+          for (const dk in props.dataset) node.dataset[dk] = props.dataset[dk];
+        } else {
+          node.setAttribute(k, props[k]);
+        }
+      }
+    }
+    if (children) {
+      for (const c of children) node.appendChild(c);
+    }
+    return node;
+  }
+  function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+
+  // ─── modes ─────────────────────────────────────
+  const RAND = (lo, hi) => Math.floor(Math.random() * (hi - lo + 1)) + lo;
+
+  const MODES = {
+    add1: {
+      name: "Add (small)",
+      sample: "4 + 3",
+      gen() { const a = RAND(1, 9), b = RAND(1, 9); return { text: `${a} + ${b}`, ans: a + b }; },
+    },
+    sub1: {
+      name: "Subtract (small)",
+      sample: "8 − 3",
+      gen() { const a = RAND(1, 9), b = RAND(0, a); return { text: `${a} − ${b}`, ans: a - b }; },
+    },
+    add2: {
+      name: "Add (big)",
+      sample: "47 + 28",
+      gen() { const a = RAND(10, 99), b = RAND(10, 99); return { text: `${a} + ${b}`, ans: a + b }; },
+    },
+    sub2: {
+      name: "Subtract (big)",
+      sample: "62 − 27",
+      gen() {
+        let a = RAND(10, 99), b = RAND(10, 99);
+        if (b > a) [a, b] = [b, a];
+        return { text: `${a} − ${b}`, ans: a - b };
+      },
+    },
+    mul: {
+      name: "Times tables",
+      sample: "6 × 7",
+      gen() { const a = RAND(1, 9), b = RAND(1, 9); return { text: `${a} × ${b}`, ans: a * b }; },
+    },
+    div: {
+      name: "Divide",
+      sample: "42 ÷ 6",
+      gen() { const a = RAND(1, 9), b = RAND(1, 9); return { text: `${a * b} ÷ ${b}`, ans: a }; },
+    },
+  };
+
+  const MODE_ORDER = ["add1", "sub1", "add2", "sub2", "mul", "div"];
+
+  const DURATIONS = [
+    { sec: 60,  label: "1 min" },
+    { sec: 180, label: "3 min" },
+    { sec: 300, label: "5 min" },
+  ];
+  const VALID_DURATIONS = new Set(DURATIONS.map(d => d.sec));
+
+  // ─── storage ───────────────────────────────────
+  const STORE_KEY = "math-sprint.v1";
+  function loadStore() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return { best: {}, sessions: [], duration: 60 };
+      const data = JSON.parse(raw);
+      const dur = VALID_DURATIONS.has(data.duration) ? data.duration : 60;
+      return { best: data.best || {}, sessions: data.sessions || [], duration: dur };
+    } catch (e) {
+      return { best: {}, sessions: [], duration: 60 };
+    }
+  }
+  function saveStore(store) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
+  }
+  function setDuration(sec) {
+    const store = loadStore();
+    store.duration = sec;
+    saveStore(store);
+  }
+  function recordSession(mode, score, durationSec) {
+    const store = loadStore();
+    const now = new Date().toISOString();
+    store.sessions.unshift({ mode, score, duration: durationSec, date: now });
+    store.sessions = store.sessions.slice(0, 50);
+    // best is per (mode, duration) — different lengths aren't comparable
+    const bestKey = `${mode}@${durationSec}`;
+    const prev = store.best[bestKey];
+    if (!prev || score > prev.score) store.best[bestKey] = { score, date: now, duration: durationSec };
+    saveStore(store);
+  }
+
+  function fmtDuration(sec) {
+    if (sec % 60 === 0) {
+      const m = sec / 60;
+      return `${m} minute${m === 1 ? "" : "s"}`;
+    }
+    return `${sec} seconds`;
+  }
+
+  // ─── DOM ───────────────────────────────────────
+  const board = document.getElementById("board");
+  const modeGrid = document.getElementById("modeGrid");
+  const durationRow = document.getElementById("durationRow");
+  const timer = document.getElementById("timer");
+  const timerText = document.getElementById("timerText");
+  const scoreText = document.getElementById("scoreText");
+  const question = document.getElementById("question");
+  const qText = document.getElementById("qText");
+  const qInput = document.getElementById("qInput");
+  const doneScore = document.getElementById("doneScore");
+  const doneHeadline = document.getElementById("doneHeadline");
+  const doneMode = document.getElementById("doneMode");
+  const doneDuration = document.getElementById("doneDuration");
+
+  // ─── state ─────────────────────────────────────
+  let state = {
+    mode: null,
+    duration: loadStore().duration,
+    score: 0,
+    current: null,
+    timerId: null,
+    endsAt: 0,
+  };
+
+  // ─── select view ───────────────────────────────
+  function renderDurationPills() {
+    // keep the existing label, remove old pills
+    const label = durationRow.querySelector(".duration-row__label");
+    clear(durationRow);
+    if (label) durationRow.appendChild(label);
+    for (const d of DURATIONS) {
+      const btn = el("button", {
+        class: "dur-pill" + (d.sec === state.duration ? " is-active" : ""),
+        type: "button",
+        onClick: () => {
+          state.duration = d.sec;
+          setDuration(d.sec);
+          renderDurationPills();
+        },
+        text: d.label,
+      });
+      durationRow.appendChild(btn);
+    }
+  }
+
+  function renderModes() {
+    clear(modeGrid);
+    for (const key of MODE_ORDER) {
+      const m = MODES[key];
+      const btn = el("button", {
+        class: "mode",
+        type: "button",
+        onClick: () => startPlay(key),
+      }, [
+        el("div", { class: "mode__sample", text: m.sample }),
+        el("div", { class: "mode__name", text: m.name }),
+      ]);
+      modeGrid.appendChild(btn);
+    }
+  }
+
+  // ─── play view ─────────────────────────────────
+  function pickQuestion() {
+    const gen = MODES[state.mode].gen;
+    let q = gen();
+    for (let i = 0; i < 6 && state.current && q.text === state.current.text; i++) q = gen();
+    state.current = q;
+    qText.textContent = q.text;
+    qInput.value = "";
+    resizeInput();
+  }
+
+  function resizeInput() {
+    const len = Math.max(qInput.value.length, 1);
+    qInput.style.width = (len + 0.5) + "ch";
+  }
+
+  function fmtClock(ms) {
+    const total = Math.max(0, Math.ceil(ms / 1000));
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  }
+
+  function tick() {
+    const left = state.endsAt - performance.now();
+    timerText.textContent = fmtClock(left);
+    if (left <= 10000) timer.classList.add("is-low");
+    else timer.classList.remove("is-low");
+    if (left <= 0) {
+      finish();
+      return;
+    }
+    state.timerId = requestAnimationFrame(tick);
+  }
+
+  function startPlay(modeKey) {
+    state.mode = modeKey;
+    state.score = 0;
+    state.current = null;
+    scoreText.textContent = "0";
+    timer.classList.remove("is-low");
+    board.setAttribute("data-state", "play");
+    pickQuestion();
+    qInput.focus();
+    state.endsAt = performance.now() + state.duration * 1000;
+    state.timerId = requestAnimationFrame(tick);
+  }
+
+  function finish() {
+    cancelAnimationFrame(state.timerId);
+    state.timerId = null;
+    recordSession(state.mode, state.score, state.duration);
+    doneScore.textContent = String(state.score);
+    doneHeadline.textContent = state.score === 1
+      ? "You got 1 right!"
+      : `You got ${state.score} right!`;
+    doneMode.textContent = MODES[state.mode].name;
+    doneDuration.textContent = fmtDuration(state.duration);
+    board.setAttribute("data-state", "done");
+  }
+
+  // input handling — digit-by-digit with validation
+  qInput.addEventListener("keydown", (e) => {
+    if (e.key === "Backspace") return;
+    if (e.key === "Enter") { e.preventDefault(); return; }
+    if (e.key.length === 1 && /[0-9]/.test(e.key)) {
+      // no leading-zero rule: once value is "0", block more digits
+      if (qInput.value === "0") { e.preventDefault(); return; }
+      return;
+    }
+    if (e.key.length === 1) { e.preventDefault(); }
+  });
+
+  qInput.addEventListener("input", () => {
+    let v = qInput.value.replace(/[^0-9]/g, "");
+    if (v.length > 1 && v[0] === "0") v = v.replace(/^0+/, "") || "0";
+    if (v !== qInput.value) qInput.value = v;
+    resizeInput();
+    if (v === "") return;
+    if (parseInt(v, 10) === state.current.ans) {
+      state.score += 1;
+      scoreText.textContent = String(state.score);
+      question.classList.add("is-correct");
+      setTimeout(() => {
+        question.classList.remove("is-correct");
+        if (board.getAttribute("data-state") === "play") {
+          pickQuestion();
+          qInput.focus();
+        }
+      }, 140);
+    }
+  });
+
+  // keep the input focused while playing — kids will tap the page
+  board.addEventListener("click", () => {
+    if (board.getAttribute("data-state") === "play") qInput.focus();
+  });
+
+  // ─── done view ─────────────────────────────────
+  document.getElementById("doneAgain").addEventListener("click", () => startPlay(state.mode));
+  document.getElementById("doneChange").addEventListener("click", () => {
+    board.setAttribute("data-state", "select");
+  });
+
+  // Global Enter on the done screen → go again
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && board.getAttribute("data-state") === "done") {
+      e.preventDefault();
+      startPlay(state.mode);
+    }
+  });
+
+  // ─── history view ──────────────────────────────
+  function fmtDate(iso) {
+    const d = new Date(iso);
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${months[d.getMonth()]} ${d.getDate()}`;
+  }
+  function fmtDateTime(iso) {
+    const d = new Date(iso);
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${months[d.getMonth()]} ${d.getDate()} · ${hh}:${mm}`;
+  }
+  function fmtMins(sec) {
+    if (sec % 60 === 0) return `${sec / 60}m`;
+    return `${sec}s`;
+  }
+
+  function renderHistory() {
+    const store = loadStore();
+    const bestGrid = document.getElementById("bestGrid");
+    clear(bestGrid);
+
+    // for the current selected duration only — keeps the page focused
+    const dur = store.duration;
+    for (const key of MODE_ORDER) {
+      const b = store.best[`${key}@${dur}`];
+      const card = el("div", { class: "best-card" });
+      card.appendChild(el("div", {
+        class: "best-card__name",
+        text: `${MODES[key].name} · ${fmtMins(dur)}`,
+      }));
+      if (b) {
+        card.appendChild(el("div", { class: "best-card__score", text: String(b.score) }));
+        card.appendChild(el("div", { class: "best-card__date", text: `best · ${fmtDate(b.date)}` }));
+      } else {
+        card.appendChild(el("div", { class: "best-card__score best-card__score--empty", text: "—" }));
+        card.appendChild(el("div", { class: "best-card__date", text: "no scores yet" }));
+      }
+      bestGrid.appendChild(card);
+    }
+
+    const list = document.getElementById("sessionList");
+    clear(list);
+    if (store.sessions.length === 0) {
+      const li = el("li", { class: "session-list--empty", text: "Play a sprint and your scores will show up here." });
+      list.appendChild(li);
+    } else {
+      for (const s of store.sessions) {
+        const modeName = (MODES[s.mode] && MODES[s.mode].name) || s.mode;
+        const durStr = s.duration ? ` · ${fmtMins(s.duration)}` : "";
+        const li = el("li", null, [
+          el("span", { class: "s-mode", text: modeName + durStr }),
+          el("span", { class: "s-score", text: String(s.score) }),
+          el("span", { class: "s-date", text: fmtDateTime(s.date) }),
+        ]);
+        list.appendChild(li);
+      }
+    }
+  }
+
+  document.getElementById("goHistory").addEventListener("click", () => {
+    renderHistory();
+    board.setAttribute("data-state", "history");
+  });
+  document.getElementById("historyBack").addEventListener("click", () => {
+    board.setAttribute("data-state", "select");
+  });
+  document.getElementById("clearHistory").addEventListener("click", () => {
+    if (confirm("Clear all past scores? This can't be undone.")) {
+      const cur = loadStore();
+      saveStore({ best: {}, sessions: [], duration: cur.duration });
+      renderHistory();
+    }
+  });
+
+  // ─── init ──────────────────────────────────────
+  renderDurationPills();
+  renderModes();
+})();
+</script>
+
+</body>
+</html>
