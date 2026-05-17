@@ -199,7 +199,7 @@
           <h4>🍎 Goal</h4>
           <p style="font-size: var(--t-sm); color: var(--ink-soft); line-height: 1.55;">
             Eat the red apples. Every apple makes you longer and gives you 10 points.
-            Don't run into the walls or yourself!
+            Walls warp you to the other side — just don't bite your own tail!
           </p>
         </div>
         <button class="btn btn--primary" id="restart" style="justify-content:center;">↻ Restart</button>
@@ -258,8 +258,10 @@
   function step() {
     if (paused || over) return;
     dir = nextDir;
-    const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
-    if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) return die();
+    const head = {
+      x: (snake[0].x + dir.x + COLS) % COLS,
+      y: (snake[0].y + dir.y + ROWS) % ROWS,
+    };
     if (snake.some(s => s.x === head.x && s.y === head.y)) return die();
     snake.unshift(head);
     if (head.x === apple.x && head.y === apple.y) {
@@ -338,13 +340,15 @@
   }
 
   // input
+  const NAV_KEYS = new Set(["arrowup", "arrowdown", "arrowleft", "arrowright", " "]);
   document.addEventListener("keydown", (e) => {
     const k = e.key.toLowerCase();
+    if (NAV_KEYS.has(k)) e.preventDefault();
     if ((k === "arrowup" || k === "w") && dir.y !== 1)   nextDir = {x:0, y:-1};
     if ((k === "arrowdown" || k === "s") && dir.y !== -1) nextDir = {x:0, y:1};
     if ((k === "arrowleft" || k === "a") && dir.x !== 1)  nextDir = {x:-1, y:0};
     if ((k === "arrowright" || k === "d") && dir.x !== -1) nextDir = {x:1, y:0};
-    if (k === " " ) { e.preventDefault(); paused = !paused; }
+    if (k === " " ) paused = !paused;
     if (k === "r") reset();
   });
 
