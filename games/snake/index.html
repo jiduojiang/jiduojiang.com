@@ -146,6 +146,45 @@
     background: var(--crayon);
     color: var(--ink);
   }
+
+  /* rule toggles */
+  .rules { display: grid; gap: 8px; }
+  .rule {
+    appearance: none;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--sp-3);
+    width: 100%;
+    background: var(--surface);
+    border: 2px solid var(--ink);
+    border-radius: var(--r-md);
+    padding: 8px 12px;
+    font-family: var(--f-display);
+    font-size: var(--t-sm); font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  .rule:active { transform: translate(2px, 2px); box-shadow: none; }
+  .rule__pip {
+    display: inline-flex; align-items: center;
+    width: 36px; height: 20px;
+    background: var(--paper-line);
+    border: 2px solid var(--ink);
+    border-radius: var(--r-pill);
+    position: relative;
+    transition: background var(--dur) var(--ease-out);
+  }
+  .rule__pip::after {
+    content: "";
+    position: absolute;
+    top: 1px; left: 1px;
+    width: 14px; height: 14px;
+    background: var(--ink);
+    border-radius: 50%;
+    transition: transform var(--dur) var(--ease-bounce);
+  }
+  .rule.is-on .rule__pip { background: var(--crayon); }
+  .rule.is-on .rule__pip::after { transform: translateX(16px); }
 </style>
 </head>
 <body>
@@ -199,8 +238,19 @@
           <h4>🍎 Goal</h4>
           <p style="font-size: var(--t-sm); color: var(--ink-soft); line-height: 1.55;">
             Eat the red apples. Every apple makes you longer and gives you 10 points.
-            Walls warp you to the other side — just don't bite your own tail!
+            Don't bite your own tail!
           </p>
+        </div>
+        <div class="panel">
+          <h4>⚙️ Rules</h4>
+          <div class="rules">
+            <button class="rule" data-rule="wrapWalls" type="button">
+              <span>Walls warp</span><span class="rule__pip" aria-hidden="true"></span>
+            </button>
+            <button class="rule" data-rule="obstacles" type="button">
+              <span>Obstacles</span><span class="rule__pip" aria-hidden="true"></span>
+            </button>
+          </div>
         </div>
         <button class="btn btn--primary" id="restart" style="justify-content:center;">↻ Restart</button>
       </aside>
@@ -220,18 +270,29 @@
 // ─── Snake — vanilla JS, no framework ────────────────────────────────
 (function () {
   const COLS = 20, ROWS = 20;
+  const OBSTACLE_COUNT = 7;
   const canvas = document.getElementById("board");
   const ctx = canvas.getContext("2d");
   const CELL = canvas.width / COLS;
 
   // crayon from CSS, fall back to leaf green
   const css = getComputedStyle(document.documentElement);
-  const COLOR_SNAKE = css.getPropertyValue("--c4").trim() || "#61c97a";
-  const COLOR_APPLE = css.getPropertyValue("--c1").trim() || "#ff6b6b";
-  const COLOR_INK   = css.getPropertyValue("--ink").trim() || "#2a2622";
-  const COLOR_GRID  = "rgba(42,38,34,.06)";
+  const COLOR_SNAKE   = css.getPropertyValue("--c4").trim() || "#61c97a";
+  const COLOR_APPLE   = css.getPropertyValue("--c1").trim() || "#ff6b6b";
+  const COLOR_INK     = css.getPropertyValue("--ink").trim() || "#2a2622";
+  const COLOR_INKSOFT = css.getPropertyValue("--ink-soft").trim() || "#6a5f55";
+  const COLOR_GRID    = "rgba(42,38,34,.06)";
 
-  let snake, dir, nextDir, apple, score, best, speed, timer, paused, over;
+  const DEFAULT_CONFIG = { wrapWalls: true, obstacles: true };
+  const config = (() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("snake.config") || "{}");
+      return { ...DEFAULT_CONFIG, ...saved };
+    } catch { return { ...DEFAULT_CONFIG }; }
+  })();
+  function saveConfig() { localStorage.setItem("snake.config", JSON.stringify(config)); }
+
+  let snake, dir, nextDir, apple, obstacles, score, best, speed, timer, paused, over;
   best = +(localStorage.getItem("snake.best") || 0);
   document.getElementById("best").textContent = best;
 
@@ -242,26 +303,52 @@
     score = 0;
     over = false;
     paused = false;
+    placeObstacles();
     placeApple();
     document.getElementById("score").textContent = score;
     document.getElementById("gameover").hidden = true;
     draw();
   }
 
+  function isOccupied(x, y) {
+    if (snake && snake.some(s => s.x === x && s.y === y)) return true;
+    if (obstacles && obstacles.some(o => o.x === x && o.y === y)) return true;
+    return false;
+  }
+
+  function placeObstacles() {
+    obstacles = [];
+    if (!config.obstacles) return;
+    // keep the snake's starting lane (y=10) clear so it doesn't crash on spawn
+    let tries = 0;
+    while (obstacles.length < OBSTACLE_COUNT && tries++ < 500) {
+      const o = { x: Math.floor(Math.random()*COLS), y: Math.floor(Math.random()*ROWS) };
+      if (o.y === 10) continue;
+      if (isOccupied(o.x, o.y)) continue;
+      obstacles.push(o);
+    }
+  }
+
   function placeApple() {
     while (true) {
       const a = { x: Math.floor(Math.random()*COLS), y: Math.floor(Math.random()*ROWS) };
-      if (!snake.some(s => s.x === a.x && s.y === a.y)) { apple = a; return; }
+      if (!isOccupied(a.x, a.y)) { apple = a; return; }
     }
   }
 
   function step() {
     if (paused || over) return;
     dir = nextDir;
-    const head = {
-      x: (snake[0].x + dir.x + COLS) % COLS,
-      y: (snake[0].y + dir.y + ROWS) % ROWS,
-    };
+    let nx = snake[0].x + dir.x;
+    let ny = snake[0].y + dir.y;
+    if (config.wrapWalls) {
+      nx = (nx + COLS) % COLS;
+      ny = (ny + ROWS) % ROWS;
+    } else if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) {
+      return die();
+    }
+    const head = { x: nx, y: ny };
+    if (obstacles.some(o => o.x === head.x && o.y === head.y)) return die();
     if (snake.some(s => s.x === head.x && s.y === head.y)) return die();
     snake.unshift(head);
     if (head.x === apple.x && head.y === apple.y) {
@@ -296,6 +383,15 @@
     for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
       ctx.fillRect(x*CELL + CELL/2 - 1, y*CELL + CELL/2 - 1, 2, 2);
     }
+
+    // obstacles
+    obstacles.forEach(o => {
+      ctx.fillStyle = COLOR_INKSOFT;
+      roundedRect(o.x*CELL + 3, o.y*CELL + 3, CELL - 6, CELL - 6, 4);
+      ctx.fill();
+      ctx.strokeStyle = COLOR_INK; ctx.lineWidth = 2.5;
+      ctx.stroke();
+    });
 
     // apple
     ctx.fillStyle = COLOR_APPLE;
@@ -363,6 +459,20 @@
 
   document.getElementById("restart").addEventListener("click", reset);
   document.getElementById("play-again").addEventListener("click", reset);
+
+  // rule toggles
+  document.querySelectorAll(".rule").forEach(btn => {
+    const key = btn.dataset.rule;
+    btn.classList.toggle("is-on", !!config[key]);
+    btn.setAttribute("aria-pressed", config[key] ? "true" : "false");
+    btn.addEventListener("click", () => {
+      config[key] = !config[key];
+      btn.classList.toggle("is-on", config[key]);
+      btn.setAttribute("aria-pressed", config[key] ? "true" : "false");
+      saveConfig();
+      reset();
+    });
+  });
 
   reset();
   setSpeed(160);
