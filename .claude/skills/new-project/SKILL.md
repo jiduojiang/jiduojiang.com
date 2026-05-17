@@ -13,14 +13,20 @@ anything technical.
 - [ ] **1. Read the design system.** Open `/shared/DESIGN.md` and skim it.
       Visual consistency across all projects is mandatory; this is non-negotiable.
 
-- [ ] **2. Decide the type.** Game or tool? You decide based on what Jiduo described.
-      "贪吃蛇" / "snake" / "calculator that turns into a fish" → games.
-      "timer" / "color picker" / "money counter" → tools. Don't ask him.
+- [ ] **2. Decide the category.** Three choices — you pick, don't ask him:
+      - **learning** — anything aimed at practice or study: math drills, spelling,
+        flashcards, reading practice ("练数学", "拼写", "背单词").
+      - **games** — playable games: "贪吃蛇" / "snake" / "calculator that turns
+        into a fish".
+      - **tools** — small utilities: "timer" / "color picker" / "money counter".
+
+      When in doubt between learning and tools: if the point is to get better at
+      a school subject, it's learning. If it's a useful gadget, it's a tool.
 
 - [ ] **3. Make an English slug.** Lowercase, letters/digits/hyphens only.
       Translate from Chinese if needed: 贪吃蛇 → `snake`, 画板 → `drawing-board`,
       数学题 → `math-quiz`. If it doesn't translate cleanly, use pinyin (拼写比赛 → `pinyin-bee`).
-      Check `games/{slug}/` and `tools/{slug}/` don't already exist.
+      Check `learning/{slug}/`, `games/{slug}/`, and `tools/{slug}/` don't already exist.
       If a name collides, add a number: `snake-2`.
 
 - [ ] **4. Decide if it needs a database.** Read the "Database" section of CLAUDE.md.

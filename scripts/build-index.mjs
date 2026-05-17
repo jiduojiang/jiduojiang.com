@@ -83,18 +83,22 @@ function formatCount(n) {
 }
 
 function build() {
+  const learning = scanProjects('learning');
   const games = scanProjects('games');
   const tools = scanProjects('tools');
 
   let html = readFileSync(TEMPLATE, 'utf8');
+  html = html.replace('<!-- LEARNING_CARDS -->', renderCardList(learning));
   html = html.replace('<!-- GAMES_CARDS -->', renderCardList(games));
   html = html.replace('<!-- TOOLS_CARDS -->', renderCardList(tools));
+  html = html.replace('<!-- LEARNING_COUNT -->', formatCount(learning.length));
   html = html.replace('<!-- GAMES_COUNT -->', formatCount(games.length));
   html = html.replace('<!-- TOOLS_COUNT -->', formatCount(tools.length));
 
   writeFileSync(OUTPUT, html);
 
   console.log(`✓ wrote ${OUTPUT}`);
+  console.log(`  ${learning.length} learning thing(s): ${learning.map((l) => l.slug).join(', ') || '(none)'}`);
   console.log(`  ${games.length} game(s): ${games.map((g) => g.slug).join(', ') || '(none)'}`);
   console.log(`  ${tools.length} tool(s): ${tools.map((t) => t.slug).join(', ') || '(none)'}`);
 }

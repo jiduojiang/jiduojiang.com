@@ -52,6 +52,16 @@
   </section>
 
   <header class="section-head">
+    <span class="section-head__emoji">📚</span>
+    <h2 class="section-head__title">Stuff I learn with</h2>
+    <span class="section-head__count"><!-- LEARNING_COUNT --></span>
+    <span class="section-head__rule"></span>
+  </header>
+  <div class="grid">
+    <!-- LEARNING_CARDS -->
+  </div>
+
+  <header class="section-head" style="margin-top: var(--sp-8);">
     <span class="section-head__emoji">🎮</span>
     <h2 class="section-head__title">Games I made</h2>
     <span class="section-head__count"><!-- GAMES_COUNT --></span>

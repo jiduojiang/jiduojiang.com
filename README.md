@@ -5,6 +5,7 @@ Claude Code.
 
 ## What's here
 
+- `learning/` — practice and study projects (math drills, etc.), one folder each
 - `games/` — playable games, one folder per game
 - `tools/` — small tools, one folder per tool
 - `shared/` — global CSS, fonts, and the [design system](shared/DESIGN.md)

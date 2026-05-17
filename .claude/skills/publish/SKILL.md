@@ -26,7 +26,7 @@ API token in `.env` lets wrangler do this without any human help.
       npm run build
       ```
 
-      Expected output mentions the new slug under "game(s)" or "tool(s)".
+      Expected output mentions the new slug under "learning thing(s)", "game(s)", or "tool(s)".
 
 - [ ] **3. Stage the right files.** Add only the project folder(s) and any
       framework changes (don't stage `index.html` — it's gitignored). Examples:
