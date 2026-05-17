@@ -112,13 +112,20 @@ over-engineer.
 
 ## Deployment
 
-Push to `main` → Cloudflare Pages auto-deploys in ~1-2 minutes. Always run
-`npm run build` before committing so `index.html` reflects the current set of projects.
-The build artifact (`/index.html`) is gitignored; the template (`/index.html.template`)
-is what's tracked.
+The Cloudflare Pages project (`jiduojiang`) is **direct-upload**, not GitHub-integrated.
+That means deploying = running `wrangler pages deploy .` (see `.claude/skills/publish/SKILL.md`
+for the exact command). Pushing to `main` does NOT trigger a deploy by itself — it's
+only for git history. The publish skill does both: git push + wrangler deploy.
+
+Always run `npm run build` before deploying so `index.html` reflects the current set
+of projects. The build artifact (`/index.html`) is gitignored; the template
+(`/index.html.template`) is what's tracked.
 
 Commit messages: short, English, present-tense: `Add snake game`, `Fix timer bell sound`,
 `Add leaderboard to snake`.
+
+Live URLs: `https://jiduojiang.com/` and `https://www.jiduojiang.com/` (both proxied
+through Cloudflare with auto-issued SSL).
 
 ---
 

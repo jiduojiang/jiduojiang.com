@@ -23,7 +23,10 @@ Jiduo says something like "我要做一个 X 游戏" to Claude Code. Claude:
 2. Creates `games/{slug}/` with `index.html` and `meta.json`
 3. Builds the feature (vanilla HTML/CSS/JS)
 4. Runs `npm run build` so the homepage shows the new card
-5. Pushes to `main` — Cloudflare Pages auto-deploys
+5. Pushes to `main` for git history, then runs `wrangler pages deploy` to ship
+   to Cloudflare (see `.claude/skills/publish/SKILL.md`)
+
+Live at <https://jiduojiang.com>.
 
 ## Local development
 
