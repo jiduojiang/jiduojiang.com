@@ -62,9 +62,7 @@ jiduojiang.com/
 │   └── skills/                 # 项目级 skills
 │       ├── new-project/
 │       │   └── SKILL.md
-│       ├── publish/
-│       │   └── SKILL.md
-│       └── add-database/
+│       └── publish/
 │           └── SKILL.md
 │
 ├── wrangler.toml               # Cloudflare 配置（含 D1 bindings）
@@ -152,20 +150,31 @@ Cloudflare Pages 配置：
 
 ## 数据库策略
 
-**默认**：不用。所有项目都是静态文件。
+**核心原则**：要不要用数据库，由 Claude 自己判断，孩子永远不需要做这个决定。
 
-**需要数据库时**：
-- 用 Cloudflare D1
-- 一个项目一个独立的 D1 数据库（命名 `{type}-{slug}`，例：`games-snake`）
-- 在 `wrangler.toml` 里加 binding
-- 在 `functions/{type}/{slug}/api.ts` 写接口（Cloudflare Pages Functions）
-- 创建 D1 数据库这一步需要爸爸帮忙跑 `wrangler d1 create`，因为涉及 Cloudflare 账号操作
+**判断时机**：当孩子描述功能时（无论在 `new-project` 阶段还是后续迭代），Claude 自己识别"是否需要持久化"。需要数据库的典型信号：
+- 想保存分数、排行榜
+- 想记住玩家名字 / 头像 / 进度
+- 想让不同小朋友看到对方的内容（留言板、画廊）
+- 想统计玩了多少次
+
+只要识别到这类需求，Claude 直接走完下面的流程，**不需要问孩子，也不需要爸爸介入**（Cloudflare API token 已经在 `.env` 里，wrangler 可以直接调）：
+
+1. 用 Cloudflare D1
+2. 一个项目一个独立的 D1 数据库（命名 `{type}-{slug}`，例：`games-snake`）
+3. 跑 `wrangler d1 create {type}-{slug}` 自动创建
+4. 在 `wrangler.toml` 里加 binding
+5. 在 `functions/{type}/{slug}/api.ts` 写接口（Cloudflare Pages Functions）
+6. 在前端 `index.html` 里 `fetch('/api/...')` 接上
+
+**默认情况**：大多数项目（贪吃蛇、计算器、画板）都是纯静态，不需要数据库。Claude 不要过度设计。
 
 ## CLAUDE.md 内容大纲
 
 `CLAUDE.md` 是每次 Claude Code 会话自动加载的全局上下文，应包含：
 
 - 项目是什么、给谁用、目标是什么
+- **最高优先级原则**：用户是 6 岁孩子，所有技术决定由 Claude 自己做，永远不要给孩子选择题（"要不要 X""用 A 还是 B"都不要问）。只接受"我想做什么"形式的输入。
 - 目录结构和约定（slug、`meta.json`）
 - "孩子说 X 时，去看 `.claude/skills/Y`"的提示，让 skills 能被触发
 - 默认技术选择（原生 HTML/CSS/JS，不要引入框架）
@@ -176,41 +185,31 @@ Cloudflare Pages 配置：
 
 放在 `.claude/skills/` 下，每个 skill 一个文件夹，包含 `SKILL.md`。
 
+**重要原则**：所有 skill 都不让孩子做技术选择题。Claude 自己判断，自己执行。孩子的输入只该是"我想做什么"（功能、玩法、外观）。
+
 ### `new-project`
 
 **触发词**：孩子说"我要做一个 XX 游戏"、"我要做一个 XX 工具"、"我想做一个新的小东西"
 
 **步骤**：
-1. 确认类型（游戏 or 工具）和大致功能
-2. 与孩子一起想一个英文 slug（命名规则见上）
-3. 检查 `games/{slug}/` 或 `tools/{slug}/` 是否已存在
-4. 创建文件夹，生成 `index.html`（含简单骨架和注释）、`meta.json`（用孩子描述填好）
-5. 本地预览（提示爸爸跑 `wrangler pages dev`）
+1. Claude 自己判断类型（游戏 or 工具），不要问孩子"这算游戏还是工具？"
+2. Claude 自己根据中文名造一个英文 slug（命名规则见上）；如果有歧义就用孩子原话的拼音或最直白的英译
+3. 检查 `games/{slug}/` 或 `tools/{slug}/` 是否已存在；重名就自动加后缀（`snake-2`）
+4. 创建文件夹，生成 `index.html`、`meta.json`（emoji 也由 Claude 选一个合适的）
+5. Claude 自己判断这个功能是否需要数据库（参考"数据库策略"小节）；需要就在这一步就把 D1 创建、wrangler.toml、`functions/` 骨架一起搭好
 6. 实现孩子要的功能（这一步是真正的 vibe coding，自由发挥）
+7. 本地起 `wrangler pages dev` 让孩子看效果
 
 ### `publish`
 
-**触发词**："发布"、"上线"、"想让小朋友看"、"完成了"
+**触发词**："发布"、"上线"、"想让小朋友看"、"完成了"、"做好了"
 
 **步骤**：
 1. 检查改动状态（`git status`），确认是想发布的内容
 2. 跑 `npm run build`，确认首页能正确生成
-3. `git add` + commit（commit message 用中文，描述这次加了什么或改了什么）
+3. `git add` + commit（commit message 用中文，由 Claude 自己根据改动写，比如"添加贪吃蛇游戏"或"给贪吃蛇加上排行榜"）
 4. `git push` 到 main
 5. 告诉孩子："已经推送啦，1-2 分钟后访问 jiduojiang.com/{type}/{slug}/ 就能玩了"
-
-### `add-database`
-
-**触发词**："想保存分数"、"做一个排行榜"、"记住玩家的名字"等
-
-**步骤**：
-1. 跟孩子解释："要让网页记住东西，需要一个'数据库'"
-2. 确认这个游戏的 slug
-3. 提醒爸爸：需要运行 `wrangler d1 create games-{slug}`
-4. 在 `wrangler.toml` 加 D1 binding
-5. 在 `functions/{type}/{slug}/` 下生成 API 骨架（GET/POST）
-6. 在前端代码里加 `fetch('/api/...')` 调用
-7. 本地测试方法（`wrangler pages dev`）
 
 ## 我替你拍板的小决定
 
