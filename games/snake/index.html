@@ -185,6 +185,24 @@
   }
   .rule.is-on .rule__pip { background: var(--crayon); }
   .rule.is-on .rule__pip::after { transform: translateX(16px); }
+
+  /* mobile: stack board over sidebar, scale board to viewport */
+  @media (max-width: 720px) {
+    .game-wrap {
+      grid-template-columns: 1fr;
+      gap: var(--sp-5);
+    }
+    #board {
+      width: 100%;
+      height: auto;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+    .sidebar { width: 100%; max-width: 520px; margin: 0 auto; }
+    .hud { flex-wrap: wrap; gap: var(--sp-3); }
+    .score__chip { padding: 8px 12px; font-size: var(--t-md); }
+    .panel { padding: 14px 16px; }
+  }
 </style>
 </head>
 <body>

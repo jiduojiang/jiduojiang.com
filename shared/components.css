@@ -354,3 +354,70 @@ button { font: inherit; }
   color: var(--c1);
   line-height: 1;
 }
+
+/* ─── responsive chrome ─────────────────────────────────
+   Mobile-friendly adjustments for the page frame, topbar,
+   section headings, cards, and project scaffold. Grid
+   breakpoints live with .grid above. */
+
+@media (max-width: 720px) {
+  .page {
+    padding: 24px 18px 64px;
+  }
+
+  .topbar {
+    margin-bottom: var(--sp-5);
+    gap: var(--sp-3);
+  }
+  .brand { gap: var(--sp-3); }
+  .brand-mark {
+    width: 44px; height: 44px;
+    font-size: 22px;
+    border-radius: var(--r-md);
+  }
+
+  .section-head {
+    gap: 12px;
+    margin: 0 2px 16px;
+    flex-wrap: wrap;
+  }
+  .section-head__emoji { font-size: 32px; }
+  .section-head__rule { display: none; }
+
+  .grid { gap: 14px; }
+  .card { padding: 18px 16px 16px; }
+  .card__emoji {
+    width: 52px; height: 52px;
+    font-size: 30px;
+    margin-bottom: 10px;
+  }
+
+  /* project pages */
+  .proj { padding: 28px 16px 64px; }
+  .proj__head {
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-5);
+    flex-wrap: wrap;
+  }
+  .proj__title { font-size: var(--t-h1); gap: var(--sp-3); }
+  .proj__emoji {
+    width: 60px; height: 60px;
+    font-size: 36px;
+    border-radius: var(--r-lg);
+  }
+  .proj__board { padding: 18px; }
+  .proj__back { padding: 6px 12px; font-size: var(--t-xs); }
+
+  .footer {
+    flex-direction: column;
+    gap: 6px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 400px) {
+  .grid { grid-template-columns: 1fr; gap: 14px; }
+  .card { padding: 16px 14px 14px; }
+  .brand-sub { display: none; }
+  .section-head__count { display: none; }
+}

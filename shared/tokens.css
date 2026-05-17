@@ -87,3 +87,28 @@
   --dur:         .18s;
   --dur-slow:    .25s;
 }
+
+/* ─── responsive type scale ─────────────────────────────
+   Shrink the big display sizes on phones. Body/sm/base stay
+   readable (this is for a 6-year-old). Only the show-off
+   sizes get scaled down. */
+
+@media (max-width: 720px) {
+  :root {
+    --t-hero: 44px;
+    --t-h1:   34px;
+    --t-h2:   24px;
+    --t-xl:   22px;
+    --t-lg:   20px;
+    --t-md:   17px;
+    --sp-7:   32px;
+    --sp-8:   48px;
+  }
+}
+
+@media (max-width: 400px) {
+  :root {
+    --t-hero: 36px;
+    --t-h1:   28px;
+  }
+}

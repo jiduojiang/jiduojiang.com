@@ -132,6 +132,25 @@
     margin-top: 14px;
     min-height: 22px;
   }
+
+  /* mobile: stack dial above presets */
+  @media (max-width: 720px) {
+    .timer-stage {
+      grid-template-columns: 1fr;
+      gap: var(--sp-5);
+      justify-items: center;
+    }
+    .dial { width: 240px; height: 240px; }
+    .dial__face { font-size: 56px; }
+    .presets { width: 100%; }
+    .preset { padding: 14px 14px; }
+    .preset__big { font-size: var(--t-lg); }
+  }
+
+  @media (max-width: 400px) {
+    .dial { width: 200px; height: 200px; }
+    .dial__face { font-size: 48px; }
+  }
 </style>
 </head>
 <body>

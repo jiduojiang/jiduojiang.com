@@ -138,3 +138,41 @@
   20%           { transform: rotate(-10deg); }
   40%           { transform: rotate(12deg); }
 }
+
+/* ─── responsive hero ───────────────────────────────────
+   On phones the hero collapses to one column. Portrait
+   shrinks but stays visible — it's part of the brand. */
+
+@media (max-width: 720px) {
+  .hero {
+    grid-template-columns: 1fr;
+    gap: var(--sp-5);
+    padding: 28px 22px;
+    border-radius: var(--r-xl);
+    margin-bottom: var(--sp-6);
+  }
+  .hero__title { margin-bottom: 10px; }
+  .hero__lead { font-size: var(--t-base); margin-bottom: var(--sp-4); }
+  .hero__facts { gap: 8px; margin-bottom: 0; }
+  .hero__tape-1 { left: 32px; width: 80px; height: 20px; top: -10px; }
+  .hero__tape-2 { right: 32px; width: 80px; height: 20px; top: -10px; }
+
+  .portrait {
+    max-width: 220px;
+    margin: 0 auto;
+  }
+  .portrait__face { font-size: 80px; }
+  .portrait__sticker {
+    width: 44px; height: 44px;
+    font-size: 22px;
+  }
+  .portrait__cap { font-size: 11px; padding: 4px 8px; }
+
+  .fact-chip { padding: 8px 12px; font-size: var(--t-xs); }
+}
+
+@media (max-width: 400px) {
+  .hero { padding: 22px 18px; }
+  .portrait { max-width: 180px; }
+  .portrait__face { font-size: 64px; }
+}
