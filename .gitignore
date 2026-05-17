@@ -1,0 +1,6 @@
+.env
+.envrc
+node_modules/
+
+# 构建产物（首页由 scripts/build-index.mjs 生成）
+/index.html
