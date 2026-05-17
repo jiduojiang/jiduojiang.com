@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build-index.mjs",
-    "dev": "wrangler pages dev . --compatibility-date=2026-05-17"
+    "dev": "wrangler pages dev ."
   },
   "engines": {
     "node": ">=18"
