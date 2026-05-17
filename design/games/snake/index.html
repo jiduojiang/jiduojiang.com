@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Snake · jiduojiang.com</title>
+
+<!-- ── design system ────────────────────────── -->
+<link rel="stylesheet" href="../../shared/fonts.css">
+<link rel="stylesheet" href="../../shared/tokens.css">
+<link rel="stylesheet" href="../../shared/components.css">
+
+<style>
+  /* Page-specific bits only. Everything reusable lives in shared/. */
+
+  /* This project's crayon. Pick one of --c1..--c6 and stick with it. */
+  .proj { --crayon: var(--c4); }
+  .proj__emoji { --card-bg: var(--crayon); }
+
+  .game-wrap {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--sp-6);
+    align-items: start;
+  }
+
+  .hud {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--sp-5);
+    gap: var(--sp-4);
+  }
+  .score {
+    display: flex;
+    gap: var(--sp-3);
+  }
+  .score__chip {
+    background: var(--bg);
+    border: 2px dashed var(--ink);
+    border-radius: var(--r-md);
+    padding: 10px 16px;
+    font-family: var(--f-display);
+    font-size: var(--t-lg);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .score__chip .lbl { font-size: var(--t-xs); font-family: var(--f-mono); color: var(--ink-soft); }
+  .score__chip .num { font-variant-numeric: tabular-nums; }
+
+  /* the playfield */
+  #board {
+    display: block;
+    background: var(--bg);
+    border: var(--stroke);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-stamp);
+    image-rendering: pixelated;
+  }
+
+  /* sidebar — controls + how to play */
+  .sidebar {
+    width: 240px;
+    display: flex; flex-direction: column;
+    gap: var(--sp-5);
+  }
+  .panel {
+    background: var(--bg);
+    border: var(--stroke);
+    border-radius: var(--r-xl);
+    padding: 18px 20px;
+  }
+  .panel h4 {
+    font-family: var(--f-display);
+    font-size: var(--t-md);
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .keys {
+    display: grid; gap: 6px;
+    font-family: var(--f-mono);
+    font-size: var(--t-sm);
+    color: var(--ink-soft);
+  }
+  .keys span b {
+    color: var(--ink);
+    background: var(--surface);
+    border: 2px solid var(--ink);
+    border-radius: 6px;
+    padding: 2px 8px;
+    box-shadow: 2px 2px 0 var(--ink);
+    margin-right: 6px;
+    font-family: var(--f-mono);
+  }
+
+  /* game-over overlay */
+  .gameover {
+    position: absolute; inset: 0;
+    background: rgba(42,38,34,.55);
+    border-radius: var(--r-2xl);
+    display: grid; place-items: center;
+    backdrop-filter: blur(4px);
+    z-index: 5;
+  }
+  .gameover[hidden] { display: none; }
+  .gameover__box {
+    background: var(--surface);
+    border: var(--stroke);
+    border-radius: var(--r-2xl);
+    padding: 28px 32px;
+    box-shadow: var(--shadow-stamp-lg);
+    text-align: center;
+    max-width: 340px;
+    animation: pop .25s var(--ease-bounce);
+  }
+  .gameover__big {
+    font-family: var(--f-display);
+    font-size: var(--t-h2);
+    margin-bottom: 8px;
+  }
+  .gameover__sub {
+    color: var(--ink-soft);
+    margin-bottom: 16px;
+  }
+
+  @keyframes pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  /* difficulty buttons */
+  .diff {
+    display: flex; gap: 6px;
+    background: var(--surface);
+    border: 2px solid var(--ink);
+    border-radius: var(--r-pill);
+    padding: 4px;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  .diff button {
+    appearance: none; border: 0; background: transparent;
+    font-family: var(--f-display);
+    font-size: var(--t-sm); font-weight: 600;
+    padding: 6px 12px;
+    border-radius: var(--r-pill);
+    cursor: pointer;
+    color: var(--ink-soft);
+  }
+  .diff button.is-active {
+    background: var(--crayon);
+    color: var(--ink);
+  }
+</style>
+</head>
+<body>
+
+<main class="proj">
+  <header class="topbar">
+    <a class="brand" href="../../jiduojiang-homepage.html">
+      <div class="brand-mark">J</div>
+      <div>
+        <div class="brand-name">jiduojiang<span class="dot">.</span>com</div>
+        <div class="brand-sub">// back to all projects</div>
+      </div>
+    </a>
+    <a class="proj__back" href="../../jiduojiang-homepage.html">← home</a>
+  </header>
+
+  <div class="proj__head">
+    <div class="proj__emoji">🐍</div>
+    <div>
+      <h1 class="proj__title" style="font-size: var(--t-h1)">Snake</h1>
+      <p style="color: var(--ink-soft); margin-top: 6px;">Eat apples and grow. Don't bite your own tail!</p>
+    </div>
+  </div>
+
+  <section class="proj__board" style="position: relative;">
+    <div class="hud">
+      <div class="score">
+        <div class="score__chip"><span class="lbl">SCORE</span><span class="num" id="score">0</span></div>
+        <div class="score__chip"><span class="lbl">BEST</span><span class="num" id="best">0</span></div>
+      </div>
+      <div class="diff" id="diff">
+        <button data-speed="160" class="is-active">slow</button>
+        <button data-speed="100">medium</button>
+        <button data-speed="60">fast</button>
+      </div>
+    </div>
+
+    <div class="game-wrap">
+      <canvas id="board" width="520" height="520"></canvas>
+
+      <aside class="sidebar">
+        <div class="panel">
+          <h4>🎮 How to play</h4>
+          <div class="keys">
+            <span><b>↑</b><b>↓</b><b>←</b><b>→</b> move</span>
+            <span><b>space</b> pause</span>
+            <span><b>R</b> restart</span>
+          </div>
+        </div>
+        <div class="panel">
+          <h4>🍎 Goal</h4>
+          <p style="font-size: var(--t-sm); color: var(--ink-soft); line-height: 1.55;">
+            Eat the red apples. Every apple makes you longer and gives you 10 points.
+            Don't run into the walls or yourself!
+          </p>
+        </div>
+        <button class="btn btn--primary" id="restart" style="justify-content:center;">↻ Restart</button>
+      </aside>
+    </div>
+
+    <div class="gameover" id="gameover" hidden>
+      <div class="gameover__box">
+        <div class="gameover__big" id="go-title">Oof!</div>
+        <div class="gameover__sub" id="go-sub">You scored <b id="go-score">0</b> points.</div>
+        <button class="btn btn--primary" id="play-again">play again</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+// ─── Snake — vanilla JS, no framework ────────────────────────────────
+(function () {
+  const COLS = 20, ROWS = 20;
+  const canvas = document.getElementById("board");
+  const ctx = canvas.getContext("2d");
+  const CELL = canvas.width / COLS;
+
+  // crayon from CSS, fall back to leaf green
+  const css = getComputedStyle(document.documentElement);
+  const COLOR_SNAKE = css.getPropertyValue("--c4").trim() || "#61c97a";
+  const COLOR_APPLE = css.getPropertyValue("--c1").trim() || "#ff6b6b";
+  const COLOR_INK   = css.getPropertyValue("--ink").trim() || "#2a2622";
+  const COLOR_GRID  = "rgba(42,38,34,.06)";
+
+  let snake, dir, nextDir, apple, score, best, speed, timer, paused, over;
+  best = +(localStorage.getItem("snake.best") || 0);
+  document.getElementById("best").textContent = best;
+
+  function reset() {
+    snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
+    dir = {x: 1, y: 0};
+    nextDir = dir;
+    score = 0;
+    over = false;
+    paused = false;
+    placeApple();
+    document.getElementById("score").textContent = score;
+    document.getElementById("gameover").hidden = true;
+    draw();
+  }
+
+  function placeApple() {
+    while (true) {
+      const a = { x: Math.floor(Math.random()*COLS), y: Math.floor(Math.random()*ROWS) };
+      if (!snake.some(s => s.x === a.x && s.y === a.y)) { apple = a; return; }
+    }
+  }
+
+  function step() {
+    if (paused || over) return;
+    dir = nextDir;
+    const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+    if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) return die();
+    if (snake.some(s => s.x === head.x && s.y === head.y)) return die();
+    snake.unshift(head);
+    if (head.x === apple.x && head.y === apple.y) {
+      score += 10;
+      document.getElementById("score").textContent = score;
+      placeApple();
+    } else {
+      snake.pop();
+    }
+    draw();
+  }
+
+  function die() {
+    over = true;
+    clearInterval(timer);
+    if (score > best) {
+      best = score;
+      localStorage.setItem("snake.best", best);
+      document.getElementById("best").textContent = best;
+    }
+    document.getElementById("go-title").textContent = score > 0 ? "Nice run!" : "Oof!";
+    document.getElementById("go-score").textContent = score;
+    document.getElementById("gameover").hidden = false;
+  }
+
+  function draw() {
+    ctx.fillStyle = css.getPropertyValue("--bg").trim();
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // dotted grid for charm
+    ctx.fillStyle = COLOR_GRID;
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      ctx.fillRect(x*CELL + CELL/2 - 1, y*CELL + CELL/2 - 1, 2, 2);
+    }
+
+    // apple
+    ctx.fillStyle = COLOR_APPLE;
+    roundedRect(apple.x*CELL + 4, apple.y*CELL + 4, CELL - 8, CELL - 8, 6);
+    ctx.fill();
+    ctx.strokeStyle = COLOR_INK; ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // snake
+    snake.forEach((s, i) => {
+      ctx.fillStyle = COLOR_SNAKE;
+      roundedRect(s.x*CELL + 2, s.y*CELL + 2, CELL - 4, CELL - 4, 7);
+      ctx.fill();
+      ctx.strokeStyle = COLOR_INK; ctx.lineWidth = 2.5;
+      ctx.stroke();
+      if (i === 0) {
+        // eyes
+        ctx.fillStyle = COLOR_INK;
+        const cx = s.x*CELL + CELL/2, cy = s.y*CELL + CELL/2;
+        const ex = dir.y === 0 ? 4 * Math.sign(dir.x || 1) : 4;
+        const ey = dir.x === 0 ? 4 * Math.sign(dir.y || 1) : 4;
+        ctx.beginPath(); ctx.arc(cx - 5 + (dir.x*3), cy - 5 + (dir.y*3), 2, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + 5 + (dir.x*3), cy - 5 + (dir.y*3), 2, 0, Math.PI*2); ctx.fill();
+      }
+    });
+  }
+
+  function roundedRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function setSpeed(ms) {
+    speed = ms;
+    if (timer) clearInterval(timer);
+    timer = setInterval(step, speed);
+  }
+
+  // input
+  document.addEventListener("keydown", (e) => {
+    const k = e.key.toLowerCase();
+    if ((k === "arrowup" || k === "w") && dir.y !== 1)   nextDir = {x:0, y:-1};
+    if ((k === "arrowdown" || k === "s") && dir.y !== -1) nextDir = {x:0, y:1};
+    if ((k === "arrowleft" || k === "a") && dir.x !== 1)  nextDir = {x:-1, y:0};
+    if ((k === "arrowright" || k === "d") && dir.x !== -1) nextDir = {x:1, y:0};
+    if (k === " " ) { e.preventDefault(); paused = !paused; }
+    if (k === "r") reset();
+  });
+
+  // difficulty buttons
+  document.querySelectorAll("#diff button").forEach(b => {
+    b.addEventListener("click", () => {
+      document.querySelectorAll("#diff button").forEach(x => x.classList.remove("is-active"));
+      b.classList.add("is-active");
+      setSpeed(+b.dataset.speed);
+    });
+  });
+
+  document.getElementById("restart").addEventListener("click", reset);
+  document.getElementById("play-again").addEventListener("click", reset);
+
+  reset();
+  setSpeed(160);
+})();
+</script>
+
+</body>
+</html>

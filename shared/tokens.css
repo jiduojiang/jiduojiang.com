@@ -1,0 +1,89 @@
+/* shared/tokens.css
+   ────────────────────────────────────────
+   Design tokens for jiduojiang.com.
+   Every page links this file, then reads values via var(--name).
+   Don't hardcode colors, sizes, or fonts — use a token.
+
+   To re-skin the whole site: change values in this file only.
+*/
+
+:root {
+  /* ─── colors: surfaces ─────────────────── */
+  --bg:           #fbf5e6;   /* warm paper background */
+  --paper-line:   #efe5cd;   /* dashed dividers, faint lines */
+  --surface:      #ffffff;   /* card / panel background */
+  --ink:          #2a2622;   /* primary text + all strokes */
+  --ink-soft:     #6a5f55;   /* secondary text, metadata */
+
+  /* ─── colors: accent palette (the "crayons") ─── */
+  /* Each card / button rotates through these. Same chroma family
+     so any combination still feels harmonious. */
+  --c1: #ff6b6b;   /* tomato      */
+  --c2: #ffc83d;   /* sun         */
+  --c3: #4fb3f5;   /* sky         */
+  --c4: #61c97a;   /* leaf        */
+  --c5: #b67bff;   /* grape       */
+  --c6: #ff97c5;   /* bubblegum   */
+
+  /* tape colors used for washi-tape decorations */
+  --tape-1: rgba(255, 209, 102, .75);
+  --tape-2: var(--c6);
+
+  /* ─── typography ───────────────────────── */
+  /* Three families: display (chunky), body (rounded), hand (handwriting),
+     mono (URLs and meta). Stick to these — don't introduce new fonts. */
+  --f-display: "Fredoka", system-ui, -apple-system, sans-serif;
+  --f-body:    "Fredoka", system-ui, -apple-system, sans-serif;
+  --f-hand:    "Caveat", "Fredoka", cursive;
+  --f-mono:    "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* type scale — keep things large; this site is for a 6-year-old */
+  --t-xs:   12px;
+  --t-sm:   14px;
+  --t-base: 16px;
+  --t-md:   18px;
+  --t-lg:   22px;
+  --t-xl:   28px;
+  --t-h2:   36px;
+  --t-h1:   56px;
+  --t-hero: 72px;
+
+  /* ─── spacing scale ────────────────────── */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 72px;
+
+  /* ─── radii ────────────────────────────── */
+  --r-sm:   10px;
+  --r-md:   14px;
+  --r-lg:   18px;
+  --r-xl:   22px;
+  --r-2xl:  28px;
+  --r-pill: 999px;
+
+  /* ─── strokes ──────────────────────────── */
+  /* every "sticker" element uses this single border width so things
+     line up visually */
+  --stroke-w: 3px;
+  --stroke:   var(--stroke-w) solid var(--ink);
+
+  /* ─── shadows ──────────────────────────── */
+  /* the signature "stamp" shadow: hard, offset, ink-colored.
+     used on cards, buttons, brand mark — everything that should
+     feel like it's been stuck on the page. */
+  --shadow-stamp:    4px 4px 0 var(--ink);
+  --shadow-stamp-lg: 8px 8px 0 var(--ink);
+  --shadow-soft:     0 6px 0 rgba(42,38,34,.10), 0 14px 28px -10px rgba(42,38,34,.18);
+
+  /* ─── motion ───────────────────────────── */
+  --ease-bounce: cubic-bezier(.2,.7,.3,1.4);
+  --ease-out:    cubic-bezier(.2,.8,.3,1);
+  --dur-fast:    .12s;
+  --dur:         .18s;
+  --dur-slow:    .25s;
+}

@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tooth Timer · jiduojiang.com</title>
+
+<link rel="stylesheet" href="../../shared/fonts.css">
+<link rel="stylesheet" href="../../shared/tokens.css">
+<link rel="stylesheet" href="../../shared/components.css">
+
+<style>
+  .proj { --crayon: var(--c3); }
+  .proj__emoji { --card-bg: var(--crayon); }
+
+  .timer-stage {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 56px;
+    align-items: center;
+    padding: 12px 0;
+  }
+
+  /* big circular timer */
+  .dial {
+    position: relative;
+    width: 320px; height: 320px;
+  }
+  .dial svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .dial__track { fill: none; stroke: var(--bg); stroke-width: 18; }
+  .dial__fill  { fill: none; stroke: var(--crayon); stroke-width: 18; stroke-linecap: round;
+                 transition: stroke-dashoffset .25s linear; }
+  .dial__face {
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    font-family: var(--f-display);
+    font-size: 72px;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.02em;
+  }
+  .dial__label {
+    position: absolute; left: 0; right: 0; top: 64%;
+    text-align: center;
+    font-family: var(--f-mono);
+    font-size: var(--t-sm);
+    color: var(--ink-soft);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  /* presets */
+  .presets {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  .preset {
+    appearance: none;
+    background: var(--surface);
+    border: var(--stroke);
+    border-radius: var(--r-xl);
+    padding: 18px 16px;
+    cursor: pointer;
+    text-align: left;
+    box-shadow: var(--shadow-stamp);
+    transition: transform var(--dur) var(--ease-bounce), box-shadow var(--dur);
+    font: inherit; color: inherit;
+  }
+  .preset:hover  { transform: translate(-2px,-3px); box-shadow: 6px 7px 0 var(--ink); }
+  .preset:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ink); }
+  .preset.is-active { background: var(--crayon); }
+  .preset__big {
+    font-family: var(--f-display);
+    font-size: var(--t-xl);
+    line-height: 1;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .preset__sub {
+    font-family: var(--f-mono);
+    font-size: var(--t-xs);
+    color: var(--ink-soft);
+    margin-top: 6px;
+  }
+
+  /* controls */
+  .controls {
+    display: flex; gap: 12px; margin-top: 20px;
+    justify-content: center;
+  }
+
+  /* finished celebration */
+  .done {
+    position: absolute; inset: 0;
+    background: rgba(42,38,34,.55);
+    border-radius: var(--r-2xl);
+    display: grid; place-items: center;
+    backdrop-filter: blur(4px);
+    z-index: 5;
+  }
+  .done[hidden] { display: none; }
+  .done__box {
+    background: var(--surface);
+    border: var(--stroke);
+    border-radius: var(--r-2xl);
+    padding: 32px 36px;
+    box-shadow: var(--shadow-stamp-lg);
+    text-align: center;
+    animation: pop .25s var(--ease-bounce);
+  }
+  .done__emoji { font-size: 72px; margin-bottom: 10px; }
+  .done__big { font-family: var(--f-display); font-size: var(--t-h2); margin-bottom: 6px; }
+  @keyframes pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  /* pulsing dot while running */
+  .running-dot {
+    display: inline-block;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--c1);
+    margin-right: 6px;
+    animation: pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: .4; transform: scale(.7); }
+  }
+  .status {
+    font-family: var(--f-mono);
+    font-size: var(--t-sm);
+    color: var(--ink-soft);
+    text-align: center;
+    margin-top: 14px;
+    min-height: 22px;
+  }
+</style>
+</head>
+<body>
+
+<main class="proj">
+  <header class="topbar">
+    <a class="brand" href="../../jiduojiang-homepage.html">
+      <div class="brand-mark">J</div>
+      <div>
+        <div class="brand-name">jiduojiang<span class="dot">.</span>com</div>
+        <div class="brand-sub">// back to all projects</div>
+      </div>
+    </a>
+    <a class="proj__back" href="../../jiduojiang-homepage.html">← home</a>
+  </header>
+
+  <div class="proj__head">
+    <div class="proj__emoji">⏱️</div>
+    <div>
+      <h1 class="proj__title" style="font-size: var(--t-h1)">Tooth Timer</h1>
+      <p style="color: var(--ink-soft); margin-top: 6px;">Pick a time, hit start, brush until the dial fills up.</p>
+    </div>
+  </div>
+
+  <section class="proj__board" style="position: relative;">
+    <div class="timer-stage">
+      <div class="dial">
+        <svg viewBox="0 0 100 100">
+          <circle class="dial__track" cx="50" cy="50" r="44" />
+          <circle class="dial__fill"  cx="50" cy="50" r="44"
+                  pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" id="dialFill" />
+        </svg>
+        <div class="dial__face" id="dialFace">2:00</div>
+        <div class="dial__label" id="dialLabel">brushing time</div>
+      </div>
+
+      <div>
+        <div class="presets" id="presets">
+          <button class="preset is-active" data-seconds="120">
+            <div class="preset__big">🪥 2:00</div>
+            <div class="preset__sub">brush teeth</div>
+          </button>
+          <button class="preset" data-seconds="60">
+            <div class="preset__big">🤲 1:00</div>
+            <div class="preset__sub">wash hands</div>
+          </button>
+          <button class="preset" data-seconds="300">
+            <div class="preset__big">📚 5:00</div>
+            <div class="preset__sub">read a story</div>
+          </button>
+          <button class="preset" data-seconds="600">
+            <div class="preset__big">🧹 10:00</div>
+            <div class="preset__sub">clean up</div>
+          </button>
+        </div>
+
+        <div class="controls">
+          <button class="btn btn--primary" id="start">▶ start</button>
+          <button class="btn" id="pause" disabled>⏸ pause</button>
+          <button class="btn btn--ghost" id="reset">↻ reset</button>
+        </div>
+        <div class="status" id="status">pick a time and press start</div>
+      </div>
+    </div>
+
+    <div class="done" id="done" hidden>
+      <div class="done__box">
+        <div class="done__emoji">🎉</div>
+        <div class="done__big">All done!</div>
+        <p style="color: var(--ink-soft); margin-bottom: 20px;">Great job — that was <b id="doneLabel">2 minutes</b>.</p>
+        <button class="btn btn--primary" id="doneAgain">go again</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  let total = 120;     // seconds
+  let remaining = 120;
+  let running = false;
+  let raf = null;
+  let lastTick = 0;
+
+  const fill = document.getElementById("dialFill");
+  const face = document.getElementById("dialFace");
+  const label = document.getElementById("dialLabel");
+  const startBtn = document.getElementById("start");
+  const pauseBtn = document.getElementById("pause");
+  const resetBtn = document.getElementById("reset");
+  const status = document.getElementById("status");
+
+  function fmt(s) {
+    const m = Math.floor(s / 60);
+    const r = Math.ceil(s % 60);
+    const sec = r === 60 ? 0 : r;
+    return `${m}:${String(sec).padStart(2,"0")}`;
+  }
+  function labelFor(s) {
+    if (s % 60 === 0) return `${s/60} minute${s/60 === 1 ? "" : "s"}`;
+    return `${s} seconds`;
+  }
+
+  function render() {
+    face.textContent = fmt(remaining);
+    const pct = (1 - remaining / total) * 100;
+    fill.setAttribute("stroke-dashoffset", String(100 - pct));
+  }
+
+  function setTotal(seconds, presetEl) {
+    pause();
+    total = seconds;
+    remaining = seconds;
+    label.textContent = labelFor(seconds);
+    render();
+    document.querySelectorAll(".preset").forEach(p => p.classList.remove("is-active"));
+    if (presetEl) presetEl.classList.add("is-active");
+    status.textContent = "ready when you are";
+  }
+
+  function tick(t) {
+    if (!running) return;
+    const dt = (t - lastTick) / 1000;
+    lastTick = t;
+    remaining = Math.max(0, remaining - dt);
+    render();
+    if (remaining <= 0) {
+      finish();
+      return;
+    }
+    raf = requestAnimationFrame(tick);
+  }
+
+  function start() {
+    if (running) return;
+    if (remaining <= 0) remaining = total;
+    running = true;
+    lastTick = performance.now();
+    raf = requestAnimationFrame(tick);
+    startBtn.disabled = true;
+    pauseBtn.disabled = false;
+    status.innerHTML = '<span class="running-dot"></span>counting down…';
+  }
+  function pause() {
+    if (!running) return;
+    running = false;
+    cancelAnimationFrame(raf);
+    startBtn.disabled = false;
+    pauseBtn.disabled = true;
+    status.textContent = "paused — press start to keep going";
+  }
+  function reset() {
+    pause();
+    remaining = total;
+    render();
+    status.textContent = "ready when you are";
+  }
+  function finish() {
+    running = false;
+    cancelAnimationFrame(raf);
+    startBtn.disabled = false;
+    pauseBtn.disabled = true;
+    document.getElementById("doneLabel").textContent = labelFor(total);
+    document.getElementById("done").hidden = false;
+    // gentle "ding" via Web Audio (no asset needed)
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = "sine"; o.frequency.value = 880;
+      g.gain.setValueAtTime(0.001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+      o.start(); o.stop(ctx.currentTime + 1.3);
+    } catch (e) {}
+  }
+
+  document.querySelectorAll(".preset").forEach(p => {
+    p.addEventListener("click", () => setTotal(+p.dataset.seconds, p));
+  });
+  startBtn.addEventListener("click", start);
+  pauseBtn.addEventListener("click", pause);
+  resetBtn.addEventListener("click", reset);
+  document.getElementById("doneAgain").addEventListener("click", () => {
+    document.getElementById("done").hidden = true;
+    reset();
+    start();
+  });
+
+  // keyboard
+  document.addEventListener("keydown", (e) => {
+    if (e.key === " ") { e.preventDefault(); running ? pause() : start(); }
+    if (e.key.toLowerCase() === "r") reset();
+  });
+
+  setTotal(120, document.querySelector(".preset"));
+})();
+</script>
+
+</body>
+</html>
