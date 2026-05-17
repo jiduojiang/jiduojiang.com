@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Jiduo's Lab · jiduojiang.com</title>
+
+<link rel="stylesheet" href="/shared/fonts.css">
+<link rel="stylesheet" href="/shared/tokens.css">
+<link rel="stylesheet" href="/shared/components.css">
+<link rel="stylesheet" href="/shared/homepage.css">
+</head>
+<body>
+
+<div class="page">
+
+  <header class="topbar">
+    <a class="brand" href="/">
+      <div class="brand-mark">J</div>
+      <div>
+        <div class="brand-name">jiduojiang<span class="dot">.</span>com</div>
+        <div class="brand-sub">// stuff Jiduo made</div>
+      </div>
+    </a>
+  </header>
+
+  <section class="hero">
+    <div class="hero__tape-1"></div>
+    <div class="hero__tape-2"></div>
+
+    <div>
+      <h1 class="hero__title">Hi! I'm Jiduo <span class="wave">👋</span></h1>
+      <p class="hero__lead">I'm 6 years old. I make games and tools with my computer.
+        Click anything below to play with what I made.</p>
+
+      <div class="hero__facts">
+        <div class="fact-chip"><span class="emo">🎂</span>6 years old</div>
+        <div class="fact-chip"><span class="emo">🎮</span>loves games</div>
+        <div class="fact-chip"><span class="emo">✏️</span>and drawing</div>
+      </div>
+    </div>
+
+    <div class="portrait">
+      <div class="portrait__frame">
+        <div class="portrait__face">🧒</div>
+        <div class="portrait__cap">self-portrait.jpg</div>
+      </div>
+      <div class="portrait__sticker portrait__sticker--1">⭐</div>
+      <div class="portrait__sticker portrait__sticker--2">🚀</div>
+      <div class="portrait__sticker portrait__sticker--3">❤️</div>
+    </div>
+  </section>
+
+  <header class="section-head">
+    <span class="section-head__emoji">🎮</span>
+    <h2 class="section-head__title">Games I made</h2>
+    <span class="section-head__count"><!-- GAMES_COUNT --></span>
+    <span class="section-head__rule"></span>
+  </header>
+  <div class="grid">
+    <!-- GAMES_CARDS -->
+  </div>
+
+  <header class="section-head" style="margin-top: var(--sp-8);">
+    <span class="section-head__emoji">🔧</span>
+    <h2 class="section-head__title">Tools I made</h2>
+    <span class="section-head__count"><!-- TOOLS_COUNT --></span>
+    <span class="section-head__rule"></span>
+  </header>
+  <div class="grid">
+    <!-- TOOLS_CARDS -->
+  </div>
+
+  <footer class="footer">
+    <span>made by jiduo · <span class="heart">♥</span></span>
+    <span>jiduojiang.com</span>
+  </footer>
+
+</div>
+
+</body>
+</html>
