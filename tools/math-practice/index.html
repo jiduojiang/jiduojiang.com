@@ -20,6 +20,60 @@
   [data-state="done"]    > section[data-view="done"]    { display: block; }
   [data-state="history"] > section[data-view="history"] { display: block; }
 
+  /* ─── immersive (fullscreen) play / done ───────── */
+  /* When the kid is answering or seeing results, hide everything
+     except the question. Re-engaged whenever play starts. */
+  body.is-immersive {
+    background: var(--surface);
+    background-image: none;
+  }
+  body.is-immersive .topbar,
+  body.is-immersive .proj__head { display: none; }
+  body.is-immersive .proj { max-width: none; margin: 0; padding: 0; }
+  body.is-immersive .proj__board {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 24px clamp(20px, 5vw, 64px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+  }
+  /* In immersive mode, scale the question even bigger. */
+  body.is-immersive .question { font-size: clamp(72px, 18vw, 180px); }
+  @media (max-width: 600px) {
+    body.is-immersive .question { font-size: clamp(56px, 18vw, 140px); }
+  }
+
+  /* Exit button — top-right corner. */
+  .exit-btn {
+    position: absolute;
+    top: 18px; right: 18px;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: var(--stroke);
+    box-shadow: var(--shadow-stamp);
+    cursor: pointer;
+    font: inherit;
+    font-family: var(--f-display);
+    font-size: 22px;
+    line-height: 1;
+    color: var(--ink);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    z-index: 10;
+    transition: transform var(--dur-fast), box-shadow var(--dur-fast);
+  }
+  .exit-btn:hover  { transform: translate(-1px,-1px); box-shadow: 5px 5px 0 var(--ink); }
+  .exit-btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+  body.is-immersive .exit-btn { display: inline-flex; }
+
   /* ─── select view ─────────────────────────────── */
 
   .select__sub {
@@ -351,6 +405,8 @@
 
   <div class="proj__board" id="board" data-state="select">
 
+    <button class="exit-btn" id="exitBtn" type="button" aria-label="exit">×</button>
+
     <!-- ─── SELECT ─────────────────────────────── -->
     <section data-view="select">
       <p class="select__sub">Pick what to practice.</p>
@@ -630,6 +686,27 @@
     state.timerId = requestAnimationFrame(tick);
   }
 
+  function enterImmersive() {
+    document.body.classList.add("is-immersive");
+    // Best-effort: request real browser fullscreen. Will silently fail on
+    // browsers that don't support it or block it; the CSS-only "immersive"
+    // class still works on its own.
+    const root = document.documentElement;
+    const req = root.requestFullscreen || root.webkitRequestFullscreen;
+    if (req && !document.fullscreenElement && !document.webkitFullscreenElement) {
+      try { req.call(root).catch(() => {}); } catch (e) {}
+    }
+  }
+  function exitImmersive() {
+    document.body.classList.remove("is-immersive");
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit) {
+        try { exit.call(document); } catch (e) {}
+      }
+    }
+  }
+
   function startPlay(modeKey) {
     state.mode = modeKey;
     state.score = 0;
@@ -637,6 +714,7 @@
     scoreText.textContent = "0";
     timer.classList.remove("is-low");
     board.setAttribute("data-state", "play");
+    enterImmersive();
     pickQuestion();
     qInput.focus();
     state.endsAt = performance.now() + state.duration * 1000;
@@ -696,8 +774,47 @@
   // ─── done view ─────────────────────────────────
   document.getElementById("doneAgain").addEventListener("click", () => startPlay(state.mode));
   document.getElementById("doneChange").addEventListener("click", () => {
+    exitImmersive();
     board.setAttribute("data-state", "select");
   });
+
+  // Exit button — leave immersive and return to mode select.
+  document.getElementById("exitBtn").addEventListener("click", () => {
+    if (state.timerId) {
+      cancelAnimationFrame(state.timerId);
+      state.timerId = null;
+    }
+    exitImmersive();
+    board.setAttribute("data-state", "select");
+  });
+
+  // Esc → exit immersive too (browsers also fire Esc to leave real fullscreen).
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.body.classList.contains("is-immersive")) {
+      if (state.timerId) {
+        cancelAnimationFrame(state.timerId);
+        state.timerId = null;
+      }
+      exitImmersive();
+      board.setAttribute("data-state", "select");
+    }
+  });
+
+  // If browser-level fullscreen is exited externally (Esc inside FS, system
+  // gesture, etc.), bring the kid all the way back to mode select.
+  function onFsChange() {
+    const fs = document.fullscreenElement || document.webkitFullscreenElement;
+    if (!fs && document.body.classList.contains("is-immersive")) {
+      if (state.timerId) {
+        cancelAnimationFrame(state.timerId);
+        state.timerId = null;
+      }
+      document.body.classList.remove("is-immersive");
+      board.setAttribute("data-state", "select");
+    }
+  }
+  document.addEventListener("fullscreenchange", onFsChange);
+  document.addEventListener("webkitfullscreenchange", onFsChange);
 
   // Global Enter on the done screen → go again
   document.addEventListener("keydown", (e) => {
