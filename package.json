@@ -1,0 +1,14 @@
+{
+  "name": "jiduojiang-com",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Jiduo Jiang's playground — games and tools made with Claude Code",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-index.mjs",
+    "dev": "wrangler pages dev . --compatibility-date=2026-05-17"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
