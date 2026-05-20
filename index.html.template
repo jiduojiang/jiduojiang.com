@@ -42,7 +42,7 @@
 
     <div class="portrait">
       <div class="portrait__frame">
-        <div class="portrait__face">🧒</div>
+        <img class="portrait__face" src="/shared/images/self-portrait.jpeg" alt="painting of Jiduo at a desk with paints" />
         <div class="portrait__cap">self-portrait.jpg</div>
       </div>
       <div class="portrait__sticker portrait__sticker--1">⭐</div>
