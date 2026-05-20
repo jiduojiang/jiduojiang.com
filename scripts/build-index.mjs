@@ -48,6 +48,7 @@ function scanProjects(typeDir) {
       description: meta.description || '',
       emoji: meta.emoji || '✨',
       created: meta.created || '1970-01-01',
+      external: meta.external || null,
     };
   });
 
@@ -55,16 +56,31 @@ function scanProjects(typeDir) {
   return projects;
 }
 
+function hostnameOf(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
 function renderCard(project, index) {
   const crayon = CRAYONS[index % CRAYONS.length];
-  const href = `/${project.type}/${project.slug}/`;
-  return `<a class="card" style="--card-bg: var(${crayon})" href="${escapeHtml(href)}">
+  const isExternal = Boolean(project.external);
+  const href = isExternal ? project.external : `/${project.type}/${project.slug}/`;
+  const target = isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
+  const cardClass = isExternal ? 'card card--external' : 'card';
+  const metaLeft = isExternal
+    ? `${escapeHtml(hostnameOf(project.external))}`
+    : `${escapeHtml(formatDate(project.created))}`;
+  const arrow = isExternal ? '↗' : '→';
+  return `<a class="${cardClass}" style="--card-bg: var(${crayon})" href="${escapeHtml(href)}"${target}>
   <div class="card__emoji">${escapeHtml(project.emoji)}</div>
   <h3 class="card__title">${escapeHtml(project.title)}</h3>
   <p class="card__desc">${escapeHtml(project.description)}</p>
   <div class="card__meta">
-    <span>${escapeHtml(formatDate(project.created))}</span>
-    <span class="card__go">→</span>
+    <span>${metaLeft}</span>
+    <span class="card__go">${arrow}</span>
   </div>
 </a>`;
 }

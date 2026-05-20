@@ -8,6 +8,10 @@ description: Use when Jiduo says he wants to make a new game or tool (e.g., "我
 Jiduo asked for something new. Build it end-to-end without making him decide
 anything technical.
 
+> **Heads up — wrong skill?** If Jiduo wants to add an *existing* outside
+> website to his list (not build something), use `add-external` instead. That
+> skill creates a meta-only entry that links out, no folder of code.
+
 ## Checklist (follow in order)
 
 - [ ] **1. Read the design system.** Open `/shared/DESIGN.md` and skim it.

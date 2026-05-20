@@ -77,9 +77,18 @@ There are three project categories. On the homepage they appear in this order:
 
 You pick the category yourself based on what Jiduo described. Never ask him.
 
-Each project folder needs:
-- `index.html` — the entry. Must link `/shared/fonts.css`, `/shared/tokens.css`, `/shared/components.css`.
-- `meta.json` — `{title, description, emoji, created}` (all English, ISO date)
+A project folder is one of two things:
+
+1. **Built by us** — has `index.html` + `meta.json`. The card links to `/{type}/{slug}/`.
+   - `index.html` must link `/shared/fonts.css`, `/shared/tokens.css`, `/shared/components.css`.
+   - `meta.json`: `{title, description, emoji, created}` (English, ISO date).
+
+2. **External curation** — only `meta.json` with an `external` URL field. No
+   `index.html`. The card links to that URL in a new tab, shows the domain
+   instead of a date, and uses `↗` instead of `→`.
+   - `meta.json`: `{title, description, emoji, created, external}` (external is
+     the full https URL).
+   - For this flow, follow `.claude/skills/add-external/SKILL.md`.
 
 `slug` is the folder name: lowercase, digits and hyphens only (`snake`, `color-picker`).
 If Jiduo describes something in Chinese, translate to a simple English slug yourself.
@@ -92,6 +101,7 @@ When Jiduo says something matching these patterns, follow the corresponding skil
 `.claude/skills/`:
 
 - **"我要做一个 X" / "I want to make a X" / "做个 X 给我玩"** → use `.claude/skills/new-project/SKILL.md`
+- **"把 X 加到列表里" / "帮我列上 X" / "add this site to my list"** → use `.claude/skills/add-external/SKILL.md` (curating someone else's tool; we don't build it)
 - **"发布" / "上线" / "完成了" / "ship it"** → use `.claude/skills/publish/SKILL.md`
 
 You should also read these skills proactively when in doubt; they encode the

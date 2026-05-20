@@ -8,6 +8,9 @@ Claude Code.
 - `learning/` — practice and study projects (math drills, etc.), one folder each
 - `games/` — playable games, one folder per game
 - `tools/` — small tools, one folder per tool
+
+A folder can be either a project Jiduo built (with `index.html`) or an
+external link he curated (just `meta.json` with an `external` URL).
 - `shared/` — global CSS, fonts, and the [design system](shared/DESIGN.md)
 - `index.html.template` — homepage source (generated `index.html` is gitignored)
 - `scripts/build-index.mjs` — scans projects and generates the homepage
