@@ -356,6 +356,9 @@
     updateControlsUI();
     document.getElementById("gameover").hidden = true;
     draw();
+    // restart the game loop (may have been stopped by endGame)
+    if (timer) clearInterval(timer);
+    timer = setInterval(step, speed);
   }
 
   function allBodies() {
