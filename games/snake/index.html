@@ -46,6 +46,8 @@
   }
   .score__chip .lbl { font-size: var(--t-xs); font-family: var(--f-mono); color: var(--ink-soft); }
   .score__chip .num { font-variant-numeric: tabular-nums; }
+  #chip-p1.is-duo .lbl { color: var(--c4); font-weight: 700; }
+  #chip-p2 .lbl { color: var(--c6); font-weight: 700; }
 
   /* the playfield */
   #board {
@@ -91,6 +93,13 @@
     margin-right: 6px;
     font-family: var(--f-mono);
   }
+  .p1-dot, .p2-dot {
+    display: inline-block; width: 10px; height: 10px;
+    border-radius: 50%; margin-right: 4px; vertical-align: middle;
+    border: 2px solid var(--ink);
+  }
+  .p1-dot { background: var(--c4); }
+  .p2-dot { background: var(--c6); }
 
   /* game-over overlay */
   .gameover {
@@ -229,9 +238,10 @@
 
   <section class="proj__board" style="position: relative;">
     <div class="hud">
-      <div class="score">
-        <div class="score__chip"><span class="lbl">SCORE</span><span class="num" id="score">0</span></div>
-        <div class="score__chip"><span class="lbl">BEST</span><span class="num" id="best">0</span></div>
+      <div class="score" id="score-area">
+        <div class="score__chip" id="chip-p1"><span class="lbl">SCORE</span><span class="num" id="score">0</span></div>
+        <div class="score__chip" id="chip-p2" style="display:none"><span class="lbl">P2</span><span class="num" id="score2">0</span></div>
+        <div class="score__chip" id="chip-best"><span class="lbl">BEST</span><span class="num" id="best">0</span></div>
       </div>
       <div class="diff" id="diff">
         <button data-speed="160" class="is-active">slow</button>
@@ -246,8 +256,14 @@
       <aside class="sidebar">
         <div class="panel">
           <h4>🎮 How to play</h4>
-          <div class="keys">
-            <span><b>↑</b><b>↓</b><b>←</b><b>→</b> move</span>
+          <div class="keys" id="keys-solo">
+            <span><b>↑</b><b>↓</b><b>←</b><b>→</b> or <b>W</b><b>A</b><b>S</b><b>D</b> move</span>
+            <span><b>space</b> pause</span>
+            <span><b>R</b> restart</span>
+          </div>
+          <div class="keys" id="keys-duo" style="display:none">
+            <span><span class="p1-dot"></span><b>W</b><b>A</b><b>S</b><b>D</b> Player 1</span>
+            <span><span class="p2-dot"></span><b>↑</b><b>↓</b><b>←</b><b>→</b> Player 2</span>
             <span><b>space</b> pause</span>
             <span><b>R</b> restart</span>
           </div>
@@ -262,6 +278,9 @@
         <div class="panel">
           <h4>⚙️ Rules</h4>
           <div class="rules">
+            <button class="rule" data-rule="twoPlayer" type="button">
+              <span>2 players</span><span class="rule__pip" aria-hidden="true"></span>
+            </button>
             <button class="rule" data-rule="wrapWalls" type="button">
               <span>Walls warp</span><span class="rule__pip" aria-hidden="true"></span>
             </button>
@@ -293,15 +312,15 @@
   const ctx = canvas.getContext("2d");
   const CELL = canvas.width / COLS;
 
-  // crayon from CSS, fall back to leaf green
   const css = getComputedStyle(document.documentElement);
-  const COLOR_SNAKE   = css.getPropertyValue("--c4").trim() || "#61c97a";
-  const COLOR_APPLE   = css.getPropertyValue("--c1").trim() || "#ff6b6b";
-  const COLOR_INK     = css.getPropertyValue("--ink").trim() || "#2a2622";
+  const COLOR_P1     = css.getPropertyValue("--c4").trim() || "#61c97a";
+  const COLOR_P2     = css.getPropertyValue("--c6").trim() || "#4a9eff";
+  const COLOR_APPLE  = css.getPropertyValue("--c1").trim() || "#ff6b6b";
+  const COLOR_INK    = css.getPropertyValue("--ink").trim() || "#2a2622";
   const COLOR_INKSOFT = css.getPropertyValue("--ink-soft").trim() || "#6a5f55";
-  const COLOR_GRID    = "rgba(42,38,34,.06)";
+  const COLOR_GRID   = "rgba(42,38,34,.06)";
 
-  const DEFAULT_CONFIG = { wrapWalls: true, obstacles: true };
+  const DEFAULT_CONFIG = { twoPlayer: false, wrapWalls: true, obstacles: true };
   const config = (() => {
     try {
       const saved = JSON.parse(localStorage.getItem("snake.config") || "{}");
@@ -310,37 +329,52 @@
   })();
   function saveConfig() { localStorage.setItem("snake.config", JSON.stringify(config)); }
 
-  let snake, dir, nextDir, apple, obstacles, score, best, speed, timer, paused, over;
+  let snakes, apple, obstacles, best, speed, timer, paused, over;
   best = +(localStorage.getItem("snake.best") || 0);
   document.getElementById("best").textContent = best;
 
+  function makeSnake(x, y, dx, color) {
+    const body = [];
+    for (let i = 0; i < 3; i++) body.push({ x: x - dx * i, y: y });
+    return { body, dir: { x: dx, y: 0 }, nextDir: { x: dx, y: 0 }, score: 0, alive: true, color };
+  }
+
   function reset() {
-    snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
-    dir = {x: 1, y: 0};
-    nextDir = dir;
-    score = 0;
+    if (config.twoPlayer) {
+      snakes = [
+        makeSnake(4, 10, 1, '--c4'),
+        makeSnake(15, 10, -1, '--c6')
+      ];
+    } else {
+      snakes = [makeSnake(10, 10, 1, '--c4')];
+    }
     over = false;
     paused = false;
     placeObstacles();
     placeApple();
-    document.getElementById("score").textContent = score;
+    updateScoreUI();
+    updateControlsUI();
     document.getElementById("gameover").hidden = true;
     draw();
   }
 
+  function allBodies() {
+    return snakes.flatMap(function(s) { return s.body; });
+  }
+
   function isOccupied(x, y) {
-    if (snake && snake.some(s => s.x === x && s.y === y)) return true;
-    if (obstacles && obstacles.some(o => o.x === x && o.y === y)) return true;
+    if (allBodies().some(function(b) { return b.x === x && b.y === y; })) return true;
+    if (obstacles && obstacles.some(function(o) { return o.x === x && o.y === y; })) return true;
     return false;
   }
 
   function placeObstacles() {
     obstacles = [];
     if (!config.obstacles) return;
-    // keep the snake's starting lane (y=10) clear so it doesn't crash on spawn
     let tries = 0;
     while (obstacles.length < OBSTACLE_COUNT && tries++ < 500) {
       const o = { x: Math.floor(Math.random()*COLS), y: Math.floor(Math.random()*ROWS) };
+      // keep all spawn lanes clear
       if (o.y === 10) continue;
       if (isOccupied(o.x, o.y)) continue;
       obstacles.push(o);
@@ -356,54 +390,142 @@
 
   function step() {
     if (paused || over) return;
-    dir = nextDir;
-    let nx = snake[0].x + dir.x;
-    let ny = snake[0].y + dir.y;
-    if (config.wrapWalls) {
-      nx = (nx + COLS) % COLS;
-      ny = (ny + ROWS) % ROWS;
-    } else if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) {
-      return die();
+
+    // Lock in current direction for all alive snakes
+    snakes.forEach(function(s) { if (s.alive) s.dir = s.nextDir; });
+
+    // Compute new head positions
+    const aliveSnakes = snakes.filter(function(s) { return s.alive; });
+    const moves = aliveSnakes.map(function(s) {
+      let nx = s.body[0].x + s.dir.x;
+      let ny = s.body[0].y + s.dir.y;
+      if (config.wrapWalls) {
+        nx = (nx + COLS) % COLS;
+        ny = (ny + ROWS) % ROWS;
+      }
+      return { snake: s, nx: nx, ny: ny };
+    });
+
+    // Head-to-head collision
+    if (moves.length === 2 && moves[0].nx === moves[1].nx && moves[0].ny === moves[1].ny) {
+      moves[0].snake.alive = false;
+      moves[1].snake.alive = false;
+      endGame(true);
+      return;
     }
-    const head = { x: nx, y: ny };
-    if (obstacles.some(o => o.x === head.x && o.y === head.y)) return die();
-    if (snake.some(s => s.x === head.x && s.y === head.y)) return die();
-    snake.unshift(head);
-    if (head.x === apple.x && head.y === apple.y) {
-      score += 10;
-      document.getElementById("score").textContent = score;
-      placeApple();
-    } else {
-      snake.pop();
+
+    // Check each snake's survival
+    moves.forEach(function(m) {
+      const s = m.snake;
+      if (!s.alive) return;
+      // Wall
+      if (!config.wrapWalls) {
+        const rx = s.body[0].x + s.dir.x;
+        const ry = s.body[0].y + s.dir.y;
+        if (rx < 0 || rx >= COLS || ry < 0 || ry >= ROWS) { s.alive = false; return; }
+      }
+      // Obstacles
+      if (obstacles.some(function(o) { return o.x === m.nx && o.y === m.ny; })) { s.alive = false; return; }
+      // Any snake body (current positions, all snakes)
+      if (allBodies().some(function(b) { return b.x === m.nx && b.y === m.ny; })) { s.alive = false; return; }
+    });
+
+    // Move alive snakes & eat
+    let appleEaten = false;
+    snakes.forEach(function(s) {
+      if (!s.alive) return;
+      const m = moves.find(function(mv) { return mv.snake === s; });
+      s.body.unshift({ x: m.nx, y: m.ny });
+      if (!appleEaten && m.nx === apple.x && m.ny === apple.y) {
+        appleEaten = true;
+        s.score += 10;
+        placeApple();
+      } else {
+        s.body.pop();
+      }
+    });
+
+    updateScoreUI();
+
+    // Win/loss
+    const aliveAfter = snakes.filter(function(s) { return s.alive; });
+    if (snakes.length === 2) {
+      if (aliveAfter.length === 0) { endGame(true); return; }
+      if (aliveAfter.length === 1) { endGame(false); return; }
+    } else if (snakes.length === 1 && aliveAfter.length === 0) {
+      endGame(false);
+      return;
     }
+
     draw();
   }
 
-  function die() {
+  function endGame(tie) {
     over = true;
     clearInterval(timer);
-    if (score > best) {
-      best = score;
-      localStorage.setItem("snake.best", best);
-      document.getElementById("best").textContent = best;
+
+    if (snakes.length === 2) {
+      const bestScore = Math.max(snakes[0].score, snakes[1].score);
+      if (bestScore > best) {
+        best = bestScore;
+        localStorage.setItem("snake.best", best);
+        document.getElementById("best").textContent = best;
+      }
+      const goTitle = document.getElementById("go-title");
+      const goSub = document.getElementById("go-sub");
+      if (tie) {
+        goTitle.textContent = "It's a tie!";
+      } else if (snakes[0].alive) {
+        goTitle.textContent = "Player 1 wins!";
+      } else {
+        goTitle.textContent = "Player 2 wins!";
+      }
+      goSub.innerHTML = 'P1 <b>' + snakes[0].score + '</b>  ·  P2 <b>' + snakes[1].score + '</b>';
+    } else {
+      const s0 = snakes[0].score;
+      if (s0 > best) {
+        best = s0;
+        localStorage.setItem("snake.best", best);
+        document.getElementById("best").textContent = best;
+      }
+      document.getElementById("go-title").textContent = s0 > 0 ? "Nice run!" : "Oof!";
+      document.getElementById("go-sub").innerHTML = 'You scored <b>' + s0 + '</b> points.';
     }
-    document.getElementById("go-title").textContent = score > 0 ? "Nice run!" : "Oof!";
-    document.getElementById("go-score").textContent = score;
     document.getElementById("gameover").hidden = false;
+  }
+
+  function updateScoreUI() {
+    const isDuo = config.twoPlayer;
+    const chipP1 = document.getElementById("chip-p1");
+    chipP1.classList.toggle("is-duo", isDuo);
+    chipP1.querySelector(".lbl").textContent = isDuo ? "P1" : "SCORE";
+    document.getElementById("score").textContent = snakes[0].score;
+    document.getElementById("chip-p2").style.display = isDuo ? "" : "none";
+    document.getElementById("chip-best").style.display = isDuo ? "none" : "";
+    if (isDuo && snakes[1]) {
+      document.getElementById("score2").textContent = snakes[1].score;
+    }
+    document.getElementById("best").textContent = best;
+  }
+
+  function updateControlsUI() {
+    const isDuo = config.twoPlayer;
+    document.getElementById("keys-solo").style.display = isDuo ? "none" : "";
+    document.getElementById("keys-duo").style.display = isDuo ? "" : "none";
   }
 
   function draw() {
     ctx.fillStyle = css.getPropertyValue("--bg").trim();
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // dotted grid for charm
+    // dotted grid
     ctx.fillStyle = COLOR_GRID;
     for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
       ctx.fillRect(x*CELL + CELL/2 - 1, y*CELL + CELL/2 - 1, 2, 2);
     }
 
     // obstacles
-    obstacles.forEach(o => {
+    obstacles.forEach(function(o) {
       ctx.fillStyle = COLOR_INKSOFT;
       roundedRect(o.x*CELL + 3, o.y*CELL + 3, CELL - 6, CELL - 6, 4);
       ctx.fill();
@@ -418,22 +540,23 @@
     ctx.strokeStyle = COLOR_INK; ctx.lineWidth = 2.5;
     ctx.stroke();
 
-    // snake
-    snake.forEach((s, i) => {
-      ctx.fillStyle = COLOR_SNAKE;
-      roundedRect(s.x*CELL + 2, s.y*CELL + 2, CELL - 4, CELL - 4, 7);
-      ctx.fill();
-      ctx.strokeStyle = COLOR_INK; ctx.lineWidth = 2.5;
-      ctx.stroke();
-      if (i === 0) {
-        // eyes
-        ctx.fillStyle = COLOR_INK;
-        const cx = s.x*CELL + CELL/2, cy = s.y*CELL + CELL/2;
-        const ex = dir.y === 0 ? 4 * Math.sign(dir.x || 1) : 4;
-        const ey = dir.x === 0 ? 4 * Math.sign(dir.y || 1) : 4;
-        ctx.beginPath(); ctx.arc(cx - 5 + (dir.x*3), cy - 5 + (dir.y*3), 2, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx + 5 + (dir.x*3), cy - 5 + (dir.y*3), 2, 0, Math.PI*2); ctx.fill();
-      }
+    // snakes
+    snakes.forEach(function(s) {
+      const hex = css.getPropertyValue(s.color).trim();
+      s.body.forEach(function(seg, i) {
+        ctx.fillStyle = hex;
+        roundedRect(seg.x*CELL + 2, seg.y*CELL + 2, CELL - 4, CELL - 4, 7);
+        ctx.fill();
+        ctx.strokeStyle = COLOR_INK; ctx.lineWidth = 2.5;
+        ctx.stroke();
+        if (i === 0 && s.alive) {
+          // eyes
+          ctx.fillStyle = COLOR_INK;
+          const cx = seg.x*CELL + CELL/2, cy = seg.y*CELL + CELL/2;
+          ctx.beginPath(); ctx.arc(cx - 5 + (s.dir.x*3), cy - 5 + (s.dir.y*3), 2.2, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(cx + 5 + (s.dir.x*3), cy - 5 + (s.dir.y*3), 2.2, 0, Math.PI*2); ctx.fill();
+        }
+      });
     });
   }
 
@@ -453,23 +576,44 @@
     timer = setInterval(step, speed);
   }
 
-  // input
-  const NAV_KEYS = new Set(["arrowup", "arrowdown", "arrowleft", "arrowright", " "]);
-  document.addEventListener("keydown", (e) => {
+  // ── Input ──────────────────────────────────────────────────────────
+  const NAV_KEYS = new Set(["arrowup","arrowdown","arrowleft","arrowright"," "]);
+  document.addEventListener("keydown", function(e) {
     const k = e.key.toLowerCase();
     if (NAV_KEYS.has(k)) e.preventDefault();
-    if ((k === "arrowup" || k === "w") && dir.y !== 1)   nextDir = {x:0, y:-1};
-    if ((k === "arrowdown" || k === "s") && dir.y !== -1) nextDir = {x:0, y:1};
-    if ((k === "arrowleft" || k === "a") && dir.x !== 1)  nextDir = {x:-1, y:0};
-    if ((k === "arrowright" || k === "d") && dir.x !== -1) nextDir = {x:1, y:0};
-    if (k === " " ) paused = !paused;
+
+    if (config.twoPlayer) {
+      // ── two-player controls ──
+      const p1 = snakes[0], p2 = snakes[1];
+      if (p1 && p1.alive) {
+        if (k === "w" && p1.dir.y !== 1)   p1.nextDir = {x:0, y:-1};
+        if (k === "s" && p1.dir.y !== -1)  p1.nextDir = {x:0, y:1};
+        if (k === "a" && p1.dir.x !== 1)   p1.nextDir = {x:-1, y:0};
+        if (k === "d" && p1.dir.x !== -1)  p1.nextDir = {x:1, y:0};
+      }
+      if (p2 && p2.alive) {
+        if (k === "arrowup" && p2.dir.y !== 1)     p2.nextDir = {x:0, y:-1};
+        if (k === "arrowdown" && p2.dir.y !== -1)  p2.nextDir = {x:0, y:1};
+        if (k === "arrowleft" && p2.dir.x !== 1)   p2.nextDir = {x:-1, y:0};
+        if (k === "arrowright" && p2.dir.x !== -1) p2.nextDir = {x:1, y:0};
+      }
+    } else {
+      // ── solo controls: wasd + arrows both work ──
+      const s = snakes[0];
+      if ((k === "arrowup" || k === "w") && s.dir.y !== 1)     s.nextDir = {x:0, y:-1};
+      if ((k === "arrowdown" || k === "s") && s.dir.y !== -1)  s.nextDir = {x:0, y:1};
+      if ((k === "arrowleft" || k === "a") && s.dir.x !== 1)   s.nextDir = {x:-1, y:0};
+      if ((k === "arrowright" || k === "d") && s.dir.x !== -1) s.nextDir = {x:1, y:0};
+    }
+
+    if (k === " ") paused = !paused;
     if (k === "r") reset();
   });
 
-  // difficulty buttons
-  document.querySelectorAll("#diff button").forEach(b => {
-    b.addEventListener("click", () => {
-      document.querySelectorAll("#diff button").forEach(x => x.classList.remove("is-active"));
+  // ── Difficulty buttons ─────────────────────────────────────────────
+  document.querySelectorAll("#diff button").forEach(function(b) {
+    b.addEventListener("click", function() {
+      document.querySelectorAll("#diff button").forEach(function(x) { x.classList.remove("is-active"); });
       b.classList.add("is-active");
       setSpeed(+b.dataset.speed);
     });
@@ -478,12 +622,12 @@
   document.getElementById("restart").addEventListener("click", reset);
   document.getElementById("play-again").addEventListener("click", reset);
 
-  // rule toggles
-  document.querySelectorAll(".rule").forEach(btn => {
+  // ── Rule toggles ───────────────────────────────────────────────────
+  document.querySelectorAll(".rule").forEach(function(btn) {
     const key = btn.dataset.rule;
     btn.classList.toggle("is-on", !!config[key]);
     btn.setAttribute("aria-pressed", config[key] ? "true" : "false");
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", function() {
       config[key] = !config[key];
       btn.classList.toggle("is-on", config[key]);
       btn.setAttribute("aria-pressed", config[key] ? "true" : "false");
