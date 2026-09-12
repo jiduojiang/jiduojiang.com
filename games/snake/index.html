@@ -308,6 +308,7 @@
 (function () {
   const COLS = 20, ROWS = 20;
   const OBSTACLE_COUNT = 7;
+  const MAX_APPLES = 5;
   const canvas = document.getElementById("board");
   const ctx = canvas.getContext("2d");
   const CELL = canvas.width / COLS;
@@ -320,16 +321,19 @@
   const COLOR_INKSOFT = css.getPropertyValue("--ink-soft").trim() || "#6a5f55";
   const COLOR_GRID   = "rgba(42,38,34,.06)";
 
-  const DEFAULT_CONFIG = { twoPlayer: false, wrapWalls: true, obstacles: true };
+  const DEFAULT_CONFIG = { twoPlayer: false, wrapWalls: true, obstacles: true, appleCount: 1 };
   const config = (() => {
     try {
       const saved = JSON.parse(localStorage.getItem("snake.config") || "{}");
-      return { ...DEFAULT_CONFIG, ...saved };
+      const merged = { ...DEFAULT_CONFIG, ...saved };
+      const n = Math.round(+merged.appleCount);
+      merged.appleCount = n >= 1 && n <= MAX_APPLES ? n : 1;
+      return merged;
     } catch { return { ...DEFAULT_CONFIG }; }
   })();
   function saveConfig() { localStorage.setItem("snake.config", JSON.stringify(config)); }
 
-  let snakes, apple, obstacles, best, speed, timer, paused, over;
+  let snakes, apples, obstacles, best, speed, timer, paused, over;
   best = +(localStorage.getItem("snake.best") || 0);
   document.getElementById("best").textContent = best;
 
@@ -351,7 +355,7 @@
     over = false;
     paused = false;
     placeObstacles();
-    placeApple();
+    placeApples();
     updateScoreUI();
     updateControlsUI();
     document.getElementById("gameover").hidden = true;
@@ -384,10 +388,14 @@
     }
   }
 
-  function placeApple() {
-    while (true) {
+  function placeApples() {
+    apples = [];
+    let tries = 0;
+    while (apples.length < config.appleCount && tries++ < 500) {
       const a = { x: Math.floor(Math.random()*COLS), y: Math.floor(Math.random()*ROWS) };
-      if (!isOccupied(a.x, a.y)) { apple = a; return; }
+      if (isOccupied(a.x, a.y)) continue;
+      if (apples.some(function(p) { return p.x === a.x && p.y === a.y; })) continue;
+      apples.push(a);
     }
   }
 
@@ -434,19 +442,21 @@
     });
 
     // Move alive snakes & eat
-    let appleEaten = false;
     snakes.forEach(function(s) {
       if (!s.alive) return;
       const m = moves.find(function(mv) { return mv.snake === s; });
       s.body.unshift({ x: m.nx, y: m.ny });
-      if (!appleEaten && m.nx === apple.x && m.ny === apple.y) {
-        appleEaten = true;
+      const eaten = apples.findIndex(function(a) { return a.x === m.nx && a.y === m.ny; });
+      if (eaten !== -1) {
+        apples.splice(eaten, 1);
         s.score += 10;
-        placeApple();
       } else {
         s.body.pop();
       }
     });
+
+    // Batch respawn: eating the last apple brings a whole fresh set
+    if (apples.length === 0) placeApples();
 
     updateScoreUI();
 
@@ -536,12 +546,14 @@
       ctx.stroke();
     });
 
-    // apple
-    ctx.fillStyle = COLOR_APPLE;
-    roundedRect(apple.x*CELL + 4, apple.y*CELL + 4, CELL - 8, CELL - 8, 6);
-    ctx.fill();
-    ctx.strokeStyle = COLOR_INK; ctx.lineWidth = 2.5;
-    ctx.stroke();
+    // apples
+    apples.forEach(function(a) {
+      ctx.fillStyle = COLOR_APPLE;
+      roundedRect(a.x*CELL + 4, a.y*CELL + 4, CELL - 8, CELL - 8, 6);
+      ctx.fill();
+      ctx.strokeStyle = COLOR_INK; ctx.lineWidth = 2.5;
+      ctx.stroke();
+    });
 
     // snakes
     snakes.forEach(function(s) {
