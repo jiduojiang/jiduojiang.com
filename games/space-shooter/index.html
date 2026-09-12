@@ -1,0 +1,1102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Solar System Explorer · jiduojiang.com</title>
+
+<link rel="stylesheet" href="/shared/fonts.css">
+<link rel="stylesheet" href="/shared/tokens.css">
+<link rel="stylesheet" href="/shared/components.css">
+
+<style>
+  .proj { --crayon: var(--c5); }
+  .proj__emoji { --card-bg: var(--crayon); }
+
+  .game-wrap {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--sp-6);
+    align-items: start;
+  }
+
+  .hud {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--sp-5);
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+  }
+
+  .boss-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    background: var(--bg);
+    border: var(--stroke);
+    border-radius: var(--r-xl);
+    padding: 10px 18px;
+    box-shadow: var(--shadow-stamp);
+    flex: 1;
+    min-width: 260px;
+  }
+  .boss-avatar {
+    font-size: 36px;
+    flex-shrink: 0;
+    animation: bossBob 1.5s ease-in-out infinite;
+  }
+  @keyframes bossBob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+  .boss-speech {
+    font-family: var(--f-display);
+    font-size: var(--t-sm);
+    color: var(--ink);
+    line-height: 1.4;
+  }
+  .boss-speech .highlight { color: var(--c5); font-weight: 700; }
+
+  .score-row {
+    display: flex;
+    gap: var(--sp-3);
+    flex-shrink: 0;
+  }
+  .score__chip {
+    background: var(--bg);
+    border: 2px dashed var(--ink);
+    border-radius: var(--r-md);
+    padding: 10px 16px;
+    font-family: var(--f-display);
+    font-size: var(--t-lg);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .score__chip .lbl { font-size: var(--t-xs); font-family: var(--f-mono); color: var(--ink-soft); }
+  .score__chip .num { font-variant-numeric: tabular-nums; }
+  .score__chip.level-chip { border-color: var(--c5); background: #f8f0ff; }
+  .score__chip.level-chip .lbl { color: var(--c5); }
+
+  #board {
+    display: block;
+    border: var(--stroke);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-stamp);
+    cursor: none;
+  }
+
+  .sidebar {
+    width: 240px;
+    display: flex; flex-direction: column;
+    gap: var(--sp-5);
+  }
+  .panel {
+    background: var(--bg);
+    border: var(--stroke);
+    border-radius: var(--r-xl);
+    padding: 18px 20px;
+  }
+  .panel h4 {
+    font-family: var(--f-display);
+    font-size: var(--t-md);
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .keys {
+    display: grid; gap: 6px;
+    font-family: var(--f-mono);
+    font-size: var(--t-sm);
+    color: var(--ink-soft);
+  }
+  .keys span b {
+    color: var(--ink);
+    background: var(--surface);
+    border: 2px solid var(--ink);
+    border-radius: 6px;
+    padding: 2px 8px;
+    box-shadow: 2px 2px 0 var(--ink);
+    margin-right: 6px;
+    font-family: var(--f-mono);
+  }
+
+  .mission-list { font-size: var(--t-sm); color: var(--ink-soft); line-height: 1.6; }
+  .mission-list .done { text-decoration: line-through; color: var(--c4); }
+  .mission-list .current { color: var(--c5); font-weight: 700; }
+
+  .upgrade-list { font-size: var(--t-sm); color: var(--ink-soft); line-height: 1.6; }
+  .upgrade-list .got { color: var(--c4); }
+
+  .gameover {
+    position: absolute; inset: 0;
+    background: rgba(10,10,46,.65);
+    border-radius: var(--r-2xl);
+    display: grid; place-items: center;
+    backdrop-filter: blur(4px);
+    z-index: 5;
+  }
+  .gameover[hidden] { display: none; }
+  .gameover__box {
+    background: var(--surface);
+    border: var(--stroke);
+    border-radius: var(--r-2xl);
+    padding: 28px 32px;
+    box-shadow: var(--shadow-stamp-lg);
+    text-align: center;
+    max-width: 360px;
+    animation: pop .25s var(--ease-bounce);
+  }
+  .gameover__big {
+    font-family: var(--f-display);
+    font-size: var(--t-h2);
+    margin-bottom: 8px;
+  }
+  .gameover__sub {
+    color: var(--ink-soft);
+    margin-bottom: 16px;
+  }
+  .gameover__sub b { color: var(--c5); }
+
+  @keyframes pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  @media (max-width: 720px) {
+    .game-wrap { grid-template-columns: 1fr; gap: var(--sp-5); }
+    #board { width: 100%; height: auto; max-width: 600px; margin: 0 auto; }
+    .sidebar { width: 100%; max-width: 600px; margin: 0 auto; }
+    .hud { flex-direction: column; align-items: stretch; gap: var(--sp-3); }
+    .score-row { justify-content: center; }
+    .score__chip { padding: 8px 12px; font-size: var(--t-md); }
+    .panel { padding: 14px 16px; }
+    .boss-avatar { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<main class="proj">
+  <header class="topbar">
+    <a class="brand" href="/">
+      <div class="brand-mark">J</div>
+      <div>
+        <div class="brand-name">jiduojiang<span class="dot">.</span>com</div>
+        <div class="brand-sub">// back to all projects</div>
+      </div>
+    </a>
+    <a class="proj__back" href="/">← home</a>
+  </header>
+
+  <div class="proj__head">
+    <div class="proj__emoji">🌌</div>
+    <div>
+      <h1 class="proj__title" style="font-size: var(--t-h1)">Solar System Explorer</h1>
+      <p style="color: var(--ink-soft); margin-top: 6px;">The boss has missions. Earth has upgrades. Explore it all!</p>
+    </div>
+  </div>
+
+  <section class="proj__board" style="position: relative;">
+    <div class="hud">
+      <div class="boss-bar">
+        <div class="boss-avatar" id="boss-avatar">👽</div>
+        <div class="boss-speech" id="boss-text">
+          Welcome, cadet! I'm <span class="highlight">Commander Zog</span>. Your first mission: visit <span class="highlight">Earth 🌍</span> for upgrades!
+        </div>
+      </div>
+      <div class="score-row">
+        <div class="score__chip level-chip"><span class="lbl">LEVEL</span><span class="num" id="level">1</span></div>
+        <div class="score__chip"><span class="lbl">PLANETS</span><span class="num" id="found">0/8</span></div>
+        <div class="score__chip"><span class="lbl">SCORE</span><span class="num" id="score">0</span></div>
+      </div>
+    </div>
+
+    <div class="game-wrap">
+      <canvas id="board" width="600" height="600"></canvas>
+
+      <aside class="sidebar">
+        <div class="panel">
+          <h4>🎮 Controls</h4>
+          <div class="keys">
+            <span><b>W</b><b>A</b><b>S</b><b>D</b> fly around</span>
+            <span><b>Mouse</b> point direction</span>
+            <span><b>R</b> restart</span>
+          </div>
+        </div>
+        <div class="panel">
+          <h4>📋 Missions</h4>
+          <div class="mission-list" id="mission-list">Loading...</div>
+        </div>
+        <div class="panel">
+          <h4>⚡ Upgrades (from Earth)</h4>
+          <div class="upgrade-list" id="upgrade-list">Visit Earth to get upgrades!</div>
+        </div>
+        <button class="btn btn--primary" id="restart" style="justify-content:center;">↻ Restart</button>
+      </aside>
+    </div>
+
+    <div class="gameover" id="gameover" hidden>
+      <div class="gameover__box">
+        <div class="gameover__big" id="go-title">Game Over!</div>
+        <div class="gameover__sub" id="go-sub">You discovered <b id="go-found">0</b> planets.</div>
+        <button class="btn btn--primary" id="play-again">play again</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  const VW = 600, VH = 600;
+  const WORLD = 3200;
+  const CX = WORLD/2, CY = WORLD/2;
+
+  const canvas = document.getElementById("board");
+  const ctx = canvas.getContext("2d");
+
+  // ── Solar System ───────────────────────────────────────────────────
+  const planets = [
+    { name: "Mercury",  orbit: 140,  r: 10,  color: "#b0ada6", speed: 0.008,  emoji: "☿️", desc: "Smallest & fastest" },
+    { name: "Venus",    orbit: 210,  r: 16,  color: "#e8cda0", speed: 0.006,  emoji: "♀️", desc: "Hottest planet" },
+    { name: "Earth",    orbit: 290,  r: 18,  color: "#4fb3f5", speed: 0.005,  emoji: "🌍", desc: "Our home! Get UPGRADES here!" },
+    { name: "Mars",     orbit: 370,  r: 14,  color: "#ff6b6b", speed: 0.004,  emoji: "♂️", desc: "The Red Planet" },
+    { name: "Jupiter",  orbit: 550,  r: 44,  color: "#e0c89c", speed: 0.0025, emoji: "♃", desc: "BIGGEST planet! Gas giant!" },
+    { name: "Saturn",   orbit: 700,  r: 36,  color: "#f0d8a0", speed: 0.002,  emoji: "🪐", desc: "Beautiful rings!", hasRings: true },
+    { name: "Uranus",   orbit: 860,  r: 28,  color: "#8ec8d8", speed: 0.0015, emoji: "⛢", desc: "Icy blue, spins sideways" },
+    { name: "Neptune",  orbit: 980,  r: 26,  color: "#4b70dd", speed: 0.0012, emoji: "♆", desc: "Deep blue, farthest planet" },
+  ];
+
+  const ASTEROID_INNER = 430, ASTEROID_OUTER = 520;
+  const KUIPER_INNER = 1040, KUIPER_OUTER = 1300;
+
+  // ── Upgrades (earned by visiting Earth) ────────────────────────────
+  const allUpgrades = [
+    { id: "speed1",   name: "Speed Boost",      emoji: "⚡", desc: "Fly 30% faster",         cost: 0 },
+    { id: "shield",   name: "Sun Shield",       emoji: "🛡️", desc: "Get closer to the Sun",  cost: 1 },
+    { id: "speed2",   name: "Turbo Engine",     emoji: "🚀", desc: "Fly 60% faster",         cost: 2 },
+    { id: "map",      name: "Full Map",         emoji: "🗺️", desc: "See all planet names",   cost: 3 },
+    { id: "warp",     name: "Mini Warp",        emoji: "✨", desc: "Press SPACE to boost",   cost: 4 },
+  ];
+
+  // ── Game State ─────────────────────────────────────────────────────
+  let rocket, camera, stars, asteroids, kuiperRocks, particles;
+  let score, lives, foundCount, over, frameCount;
+  let mouseWorldX, mouseWorldY, mouseOnCanvas;
+  let currentMissionIdx;
+  let invincibleTimer, missionCompleteTimer, earthVisitTimer;
+  let upgradeLevel, unlockedUpgrades;
+  let speedMultiplier;
+
+  const missionOrder = ["Earth", "Mars", "Jupiter", "Venus", "Mercury", "Saturn", "Uranus", "Neptune"];
+
+  const missions = missionOrder.map(name => {
+    const p = planets.find(pl => pl.name === name);
+    const isEarth = name === "Earth";
+    return {
+      type: "planet",
+      planet: p,
+      text: isEarth
+        ? `Visit <b>Earth 🌍</b> first! The people there will give you <b>upgrades</b>!`
+        : `Fly to <b>${p.name} ${p.emoji}</b>! ${p.desc}`
+    };
+  });
+
+  function getCurrentMission() {
+    if (currentMissionIdx >= missions.length) return null;
+    return missions[currentMissionIdx];
+  }
+
+  function reset() {
+    rocket = { x: CX + 270, y: CY + 20, vx: 0, vy: 0, r: 12, angle: 0 };
+    camera = { x: rocket.x - VW/2, y: rocket.y - VH/2 };
+    particles = [];
+    score = 0;
+    lives = 3;
+    foundCount = 0;
+    over = false;
+    frameCount = 0;
+    currentMissionIdx = 0;
+    invincibleTimer = 0;
+    missionCompleteTimer = 0;
+    earthVisitTimer = 0;
+    upgradeLevel = 0;
+    unlockedUpgrades = [];
+    speedMultiplier = 1;
+
+    planets.forEach(p => { p.found = false; p._angle = Math.random() * Math.PI * 2; });
+
+    generateStars();
+    generateAsteroids();
+    generateKuiperBelt();
+
+    updateUI();
+    updateBossText();
+    updateMissionList();
+    updateUpgradeList();
+    document.getElementById("gameover").hidden = true;
+  }
+
+  function generateStars() {
+    stars = [];
+    for (let i = 0; i < 400; i++) {
+      stars.push({
+        x: Math.random() * WORLD, y: Math.random() * WORLD,
+        r: Math.random() * 1.5 + 0.3,
+        bright: Math.random() * Math.PI * 2
+      });
+    }
+  }
+
+  function generateAsteroids() {
+    asteroids = [];
+    for (let i = 0; i < 200; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = ASTEROID_INNER + Math.random() * (ASTEROID_OUTER - ASTEROID_INNER);
+      asteroids.push({
+        x: CX + Math.cos(angle) * dist + (Math.random()-0.5)*40,
+        y: CY + Math.sin(angle) * dist + (Math.random()-0.5)*40,
+        r: 3 + Math.random() * 8,
+        orbit: dist, angle, speed: 0.001 + Math.random() * 0.004,
+        color: ["#8a7a6a","#9a8a7a","#7a6a5a","#a09080"][Math.floor(Math.random()*4)],
+        jagged: Array.from({length:7}, () => 0.65+Math.random()*0.35)
+      });
+    }
+  }
+
+  function generateKuiperBelt() {
+    kuiperRocks = [];
+    for (let i = 0; i < 250; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = KUIPER_INNER + Math.random() * (KUIPER_OUTER - KUIPER_INNER);
+      kuiperRocks.push({
+        x: CX + Math.cos(angle)*dist + (Math.random()-0.5)*60,
+        y: CY + Math.sin(angle)*dist + (Math.random()-0.5)*60,
+        r: 2 + Math.random() * 6,
+        orbit: dist, angle, speed: 0.0003 + Math.random()*0.002,
+        color: ["#a0c8e8","#c0d8f0","#8098b8","#b0c8e0","#90b0d0"][Math.floor(Math.random()*5)]
+      });
+    }
+  }
+
+  function updateUI() {
+    document.getElementById("found").textContent = foundCount + "/8";
+    document.getElementById("score").textContent = score;
+    document.getElementById("level").textContent = upgradeLevel + 1;
+  }
+
+  function updateBossText() {
+    const bossText = document.getElementById("boss-text");
+    const bossAvatar = document.getElementById("boss-avatar");
+
+    if (over) {
+      bossAvatar.textContent = "😢";
+      bossText.innerHTML = 'Oh no! You flew into the Sun! Press <span class="highlight">R</span> to try again.';
+      return;
+    }
+    if (earthVisitTimer > 0) {
+      bossAvatar.textContent = "🎉";
+      bossText.innerHTML = 'The people on <span class="highlight">Earth 🌍</span> gave you an upgrade! Check the sidebar!';
+      return;
+    }
+    if (missionCompleteTimer > 0) {
+      bossAvatar.textContent = "🥳";
+      const m = missions[Math.min(currentMissionIdx - 1, missions.length - 1)];
+      if (m) {
+        bossText.innerHTML = `<span class="highlight">${m.planet.name} ${m.planet.emoji}</span> discovered! Great work!`;
+      }
+      return;
+    }
+    if (currentMissionIdx >= missions.length) {
+      bossAvatar.textContent = "🏆";
+      bossText.innerHTML = 'ALL 8 planets found! You are the <span class="highlight">greatest explorer</span> in the galaxy!';
+      return;
+    }
+
+    bossAvatar.textContent = "👽";
+    const m = missions[currentMissionIdx];
+    const p = m.planet;
+    let hint = "";
+    const od = p.orbit;
+    if (od < 200) hint = "Very close to the Sun!";
+    else if (od < 350) hint = "Inner solar system.";
+    else if (od < 450) hint = "Near the asteroid belt.";
+    else if (od < 650) hint = "Past the asteroid belt — look for the BIG one!";
+    else if (od < 800) hint = "Outer solar system, look for rings!";
+    else if (od < 950) hint = "Far out, an icy blue planet.";
+    else hint = "Way past everything, deep blue.";
+    bossText.innerHTML = `${m.text} <span style="color:var(--ink-soft);font-size:var(--t-xs)">📍 ${hint}</span>`;
+  }
+
+  function updateMissionList() {
+    const list = document.getElementById("mission-list");
+    let html = '';
+    for (let i = 0; i < missions.length; i++) {
+      const m = missions[i];
+      if (i < currentMissionIdx) {
+        html += `<div class="done">✅ ${m.planet.emoji} ${m.planet.name}</div>`;
+      } else if (i === currentMissionIdx) {
+        html += `<div class="current">🎯 ${m.planet.emoji} ${m.planet.name} ← GO!</div>`;
+      } else {
+        html += `<div style="opacity:0.4">⬜ ${m.planet.emoji} ${m.planet.name}</div>`;
+      }
+    }
+    if (currentMissionIdx >= missions.length) {
+      html += '<div style="color:var(--c2);font-weight:700;">🌟 Galaxy Complete! 🌟</div>';
+    }
+    list.innerHTML = html;
+  }
+
+  function updateUpgradeList() {
+    const list = document.getElementById("upgrade-list");
+    let html = '';
+    for (let i = 0; i < allUpgrades.length; i++) {
+      const u = allUpgrades[i];
+      if (unlockedUpgrades.includes(u.id)) {
+        html += `<div class="got">✅ ${u.emoji} ${u.name} — ${u.desc}</div>`;
+      } else if (i === unlockedUpgrades.length) {
+        html += `<div class="current">🔒 ${u.emoji} ${u.name} — Visit Earth!</div>`;
+      } else {
+        html += `<div style="opacity:0.35">🔒 ${u.emoji} ${u.name}</div>`;
+      }
+    }
+    if (unlockedUpgrades.length >= allUpgrades.length) {
+      html += '<div style="color:var(--c2);font-weight:700;">🌟 All upgrades unlocked! 🌟</div>';
+    }
+    list.innerHTML = html;
+  }
+
+  function applyUpgrade(upgrade) {
+    switch (upgrade.id) {
+      case "speed1": speedMultiplier = 1.3; break;
+      case "shield": /* reduces sun danger zone from 75 to 45 */ break;
+      case "speed2": speedMultiplier = 1.6; break;
+      case "map": /* shows all planet names always — handled in draw */ break;
+      case "warp": /* space bar boost — handled in update */ break;
+    }
+  }
+
+  function giveEarthUpgrade() {
+    // Find next un-earned upgrade
+    const nextIdx = unlockedUpgrades.length;
+    if (nextIdx >= allUpgrades.length) {
+      // Already have all upgrades, just give bonus score
+      score += 200;
+      return;
+    }
+    const upgrade = allUpgrades[nextIdx];
+    unlockedUpgrades.push(upgrade.id);
+    upgradeLevel = nextIdx + 1;
+    applyUpgrade(upgrade);
+    score += 100;
+    earthVisitTimer = 150;
+    spawnParticles(rocket.x, rocket.y, "#4fb3f5", 25);
+    updateUI();
+    updateBossText();
+    updateUpgradeList();
+  }
+
+  function completeCurrentMission() {
+    const m = getCurrentMission();
+    if (!m) return;
+    m.planet.found = true;
+    foundCount++;
+    score += 100;
+    currentMissionIdx++;
+    missionCompleteTimer = 120;
+
+    const px = CX + Math.cos(m.planet._angle) * m.planet.orbit;
+    const py = CY + Math.sin(m.planet._angle) * m.planet.orbit;
+    spawnParticles(px, py, m.planet.color, 30);
+
+    // Earth gives an upgrade!
+    if (m.planet.name === "Earth") {
+      giveEarthUpgrade();
+    }
+
+    updateUI();
+    updateBossText();
+    updateMissionList();
+  }
+
+  function spawnParticles(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 1 + Math.random() * 4;
+      particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        life: 20 + Math.random() * 25, maxLife: 45, color,
+        r: 1.5 + Math.random() * 3
+      });
+    }
+  }
+
+  // ── Update ─────────────────────────────────────────────────────────
+  function update() {
+    if (over) return;
+    frameCount++;
+
+    if (invincibleTimer > 0) invincibleTimer--;
+    if (missionCompleteTimer > 0) {
+      missionCompleteTimer--;
+      if (missionCompleteTimer === 0) updateBossText();
+    }
+    if (earthVisitTimer > 0) {
+      earthVisitTimer--;
+      if (earthVisitTimer === 0) updateBossText();
+    }
+
+    // Rocket rotation (A/D turn left/right)
+    const turnSpeed = 0.06;
+    if (keys.a) rocket.angle -= turnSpeed;
+    if (keys.d) rocket.angle += turnSpeed;
+
+    // Rocket thrust (W = forward, S = backward)
+    const accel = 0.3;
+    const baseMaxSpeed = 4;
+    const maxSpeed = baseMaxSpeed * speedMultiplier;
+    const friction = 0.94;
+    if (keys.w) {
+      rocket.vx += Math.cos(rocket.angle) * accel;
+      rocket.vy += Math.sin(rocket.angle) * accel;
+    }
+    if (keys.s) {
+      rocket.vx -= Math.cos(rocket.angle) * accel * 0.6;
+      rocket.vy -= Math.sin(rocket.angle) * accel * 0.6;
+    }
+
+    // Jump / Warp boost (SPACE)
+    if (keys.space) {
+      const boost = unlockedUpgrades.includes("warp") ? 2.5 : 1.8;
+      rocket.vx += Math.cos(rocket.angle) * boost;
+      rocket.vy += Math.sin(rocket.angle) * boost;
+      keys.space = false; // one press = one jump/boost
+    }
+
+    rocket.vx *= friction;
+    rocket.vy *= friction;
+    const spd = Math.sqrt(rocket.vx*rocket.vx + rocket.vy*rocket.vy);
+    if (spd > maxSpeed) { rocket.vx *= maxSpeed/spd; rocket.vy *= maxSpeed/spd; }
+    rocket.x += rocket.vx;
+    rocket.y += rocket.vy;
+
+    rocket.x = Math.max(20, Math.min(WORLD-20, rocket.x));
+    rocket.y = Math.max(20, Math.min(WORLD-20, rocket.y));
+
+    if (mouseOnCanvas) {
+      rocket.angle = Math.atan2(mouseWorldY - rocket.y, mouseWorldX - rocket.x);
+    }
+
+    // Camera
+    const tcX = rocket.x - VW/2, tcY = rocket.y - VH/2;
+    camera.x += (tcX - camera.x) * 0.12;
+    camera.y += (tcY - camera.y) * 0.12;
+    camera.x = Math.max(0, Math.min(WORLD-VW, camera.x));
+    camera.y = Math.max(0, Math.min(WORLD-VH, camera.y));
+
+    // Orbit everything
+    planets.forEach(p => p._angle += p.speed);
+    asteroids.forEach(a => { a.angle += a.speed; a.x = CX + Math.cos(a.angle)*a.orbit; a.y = CY + Math.sin(a.angle)*a.orbit; });
+    kuiperRocks.forEach(k => { k.angle += k.speed; k.x = CX + Math.cos(k.angle)*k.orbit; k.y = CY + Math.sin(k.angle)*k.orbit; });
+
+    // Planet discovery
+    const mission = getCurrentMission();
+    if (mission && mission.type === "planet") {
+      const p = mission.planet;
+      const px = CX + Math.cos(p._angle)*p.orbit;
+      const py = CY + Math.sin(p._angle)*p.orbit;
+      const dx = rocket.x - px, dy = rocket.y - py;
+      if (Math.sqrt(dx*dx+dy*dy) < p.r + 40) {
+        completeCurrentMission();
+      }
+    }
+
+    // Earth re-visit (every time you visit Earth, get next upgrade if available)
+    const earth = planets.find(p => p.name === "Earth");
+    if (earth && earth.found && earthVisitTimer <= 0 && missionCompleteTimer <= 0) {
+      const epx = CX + Math.cos(earth._angle)*earth.orbit;
+      const epy = CY + Math.sin(earth._angle)*earth.orbit;
+      const edx = rocket.x - epx, edy = rocket.y - epy;
+      if (Math.sqrt(edx*edx+edy*edy) < earth.r + 35) {
+        const nextIdx = unlockedUpgrades.length;
+        if (nextIdx < allUpgrades.length) {
+          giveEarthUpgrade();
+        }
+      }
+    }
+
+    // Sun danger — only thing that hurts!
+    if (invincibleTimer <= 0) {
+      const sunDist = Math.sqrt((rocket.x-CX)**2 + (rocket.y-CY)**2);
+      const dangerZone = unlockedUpgrades.includes("shield") ? 50 : 80;
+      if (sunDist < dangerZone + rocket.r) {
+        spawnParticles(rocket.x, rocket.y, "#ffc83d", 20);
+        lives--;
+        invincibleTimer = 90;
+        updateUI();
+        if (lives <= 0) {
+          endGame();
+          return;
+        }
+      }
+    }
+
+    // Particles
+    for (let i = particles.length-1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx; p.y += p.vy;
+      p.vx *= 0.96; p.vy *= 0.96;
+      p.life--;
+      if (p.life <= 0) particles.splice(i,1);
+    }
+  }
+
+  function endGame() {
+    over = true;
+    spawnParticles(rocket.x, rocket.y, "#ffc83d", 40);
+    updateBossText();
+    document.getElementById("go-found").textContent = foundCount;
+    document.getElementById("gameover").hidden = false;
+  }
+
+  // ── Drawing ────────────────────────────────────────────────────────
+  function worldToScreen(wx, wy) { return { x: wx - camera.x, y: wy - camera.y }; }
+  function isVisible(wx, wy, m) { const s = worldToScreen(wx,wy); return s.x>-m && s.x<VW+m && s.y>-m && s.y<VH+m; }
+
+  function drawSun() {
+    if (!isVisible(CX, CY, 120)) return;
+    const s = worldToScreen(CX, CY);
+
+    // Danger zone indicator
+    const dangerR = unlockedUpgrades.includes("shield") ? 50 : 80;
+    ctx.fillStyle = "rgba(255,100,30,0.06)";
+    ctx.beginPath(); ctx.arc(s.x, s.y, dangerR, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = "rgba(255,150,50,0.2)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 12]);
+    ctx.beginPath(); ctx.arc(s.x, s.y, dangerR, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Glow layers
+    for (let i = 3; i >= 0; i--) {
+      const alpha = 0.08 + i*0.04;
+      const r = 75 + i*18 + Math.sin(frameCount*0.03+i)*4;
+      const grad = ctx.createRadialGradient(s.x,s.y,55,s.x,s.y,r);
+      grad.addColorStop(0, `rgba(255,200,50,${alpha*2})`);
+      grad.addColorStop(1, "rgba(255,200,50,0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(s.x,s.y,r,0,Math.PI*2); ctx.fill();
+    }
+
+    // Body
+    const sunGrad = ctx.createRadialGradient(s.x,s.y,20,s.x,s.y,70);
+    sunGrad.addColorStop(0, "#fffde0");
+    sunGrad.addColorStop(0.4, "#ffc83d");
+    sunGrad.addColorStop(0.8, "#ff9d2e");
+    sunGrad.addColorStop(1, "#ff6b2e");
+    ctx.fillStyle = sunGrad;
+    ctx.beginPath(); ctx.arc(s.x,s.y,70,0,Math.PI*2); ctx.fill();
+
+    // Label
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 13px 'DM Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("☀️ SUN", s.x, s.y - 82);
+
+    // Danger label
+    ctx.fillStyle = "rgba(255,150,50,0.5)";
+    ctx.font = "9px 'Caveat', cursive";
+    ctx.fillText("too hot!", s.x, s.y - dangerR - 4);
+  }
+
+  function drawOrbitLine(orbitR, alpha) {
+    const s = worldToScreen(CX, CY);
+    ctx.strokeStyle = `rgba(255,255,255,${alpha || 0.07})`;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 10]);
+    ctx.beginPath(); ctx.arc(s.x, s.y, orbitR, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function drawPlanet(p) {
+    const px = CX + Math.cos(p._angle)*p.orbit;
+    const py = CY + Math.sin(p._angle)*p.orbit;
+    if (!isVisible(px, py, p.r + 30)) return;
+    const s = worldToScreen(px, py);
+
+    const showName = p.found || unlockedUpgrades.includes("map");
+
+    // Saturn rings
+    if (p.hasRings) {
+      ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(-0.4);
+      ctx.strokeStyle = "#e0c888"; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.ellipse(0,0,p.r+12,p.r*0.35,0,0,Math.PI*2); ctx.stroke();
+      ctx.strokeStyle = "#c8b070"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(0,0,p.r+8,p.r*0.25,0,0,Math.PI*2); ctx.stroke();
+      ctx.restore();
+    }
+
+    // Body
+    const grad = ctx.createRadialGradient(s.x-p.r*0.2,s.y-p.r*0.3,p.r*0.1,s.x,s.y,p.r);
+    grad.addColorStop(0, "#ffffff");
+    grad.addColorStop(0.5, p.color);
+    grad.addColorStop(1, "rgba(0,0,0,0.4)");
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(s.x,s.y,p.r,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 1.5; ctx.stroke();
+
+    // Jupiter bands
+    if (p.name === "Jupiter") {
+      ctx.save();
+      ctx.beginPath(); ctx.arc(s.x,s.y,p.r,0,Math.PI*2); ctx.clip();
+      for (let i = -3; i <= 3; i++) {
+        ctx.fillStyle = i%2===0 ? "rgba(180,130,80,0.35)" : "rgba(220,190,150,0.25)";
+        ctx.fillRect(s.x-p.r, s.y+i*8, p.r*2, 8);
+      }
+      ctx.fillStyle = "rgba(200,100,60,0.5)";
+      ctx.beginPath(); ctx.ellipse(s.x+p.r*0.4,s.y+p.r*0.15,p.r*0.25,p.r*0.15,0,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+
+    // Earth special indicator
+    if (p.name === "Earth") {
+      const pulse = 1 + Math.sin(frameCount*0.05)*0.3;
+      ctx.strokeStyle = `rgba(79,179,245,${0.5*pulse})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(s.x, s.y, p.r+10*pulse, 0, Math.PI*2); ctx.stroke();
+      // Upgrade icon
+      ctx.fillText("⚡", s.x, s.y - p.r - 14);
+    }
+
+    // Found check
+    if (p.found) {
+      ctx.fillStyle = "rgba(97,201,122,0.2)";
+      ctx.beginPath(); ctx.arc(s.x,s.y,p.r+8,0,Math.PI*2); ctx.fill();
+    }
+
+    // Mission target indicator
+    const mission = getCurrentMission();
+    if (mission && mission.type==="planet" && mission.planet===p && !p.found) {
+      const pulse = 1 + Math.sin(frameCount*0.06)*0.3;
+      ctx.strokeStyle = `rgba(255,200,61,${0.6*pulse})`;
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([5,5]);
+      ctx.beginPath(); ctx.arc(s.x,s.y,p.r+18*pulse,0,Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#ffc83d";
+      ctx.font = "18px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("👇", s.x, s.y - p.r - 22);
+    }
+
+    // Name label
+    if (showName) {
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 11px 'DM Mono', monospace";
+      ctx.textAlign = "center";
+      let label = p.name.toUpperCase();
+      if (p.name === "Earth") label += " ⚡";
+      ctx.fillText(label, s.x, s.y + p.r + 16);
+    }
+  }
+
+  function drawAsteroid(a) {
+    if (!isVisible(a.x, a.y, a.r+10)) return;
+    const s = worldToScreen(a.x, a.y);
+    ctx.fillStyle = a.color;
+    ctx.beginPath();
+    for (let i = 0; i < a.jagged.length; i++) {
+      const angle = (i/a.jagged.length)*Math.PI*2;
+      const rad = a.r * a.jagged[i];
+      const px = s.x + Math.cos(angle)*rad;
+      const py = s.y + Math.sin(angle)*rad;
+      if (i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.15)"; ctx.lineWidth = 1; ctx.stroke();
+  }
+
+  function drawKuiperRock(k) {
+    if (!isVisible(k.x, k.y, k.r+5)) return;
+    const s = worldToScreen(k.x, k.y);
+    ctx.fillStyle = k.color;
+    ctx.beginPath(); ctx.arc(s.x,s.y,k.r,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 0.5; ctx.stroke();
+  }
+
+  function drawRocket(x, y, r, angle) {
+    const s = worldToScreen(x, y);
+    ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(angle);
+
+    // Flame
+    const flameLen = 14 + Math.random()*10;
+    ctx.fillStyle = "#ff6b6b";
+    ctx.beginPath();
+    ctx.moveTo(-r+3, r*0.3); ctx.lineTo(-r-flameLen, 0); ctx.lineTo(-r+3, -r*0.3);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#ffc83d";
+    ctx.beginPath();
+    ctx.moveTo(-r+3, r*0.15); ctx.lineTo(-r-flameLen*0.5, 0); ctx.lineTo(-r+3, -r*0.15);
+    ctx.closePath(); ctx.fill();
+
+    // Body
+    ctx.fillStyle = "#4fb3f5";
+    ctx.beginPath();
+    ctx.moveTo(r,0);
+    ctx.bezierCurveTo(r*0.4,-r*0.7,-r*0.3,-r*0.8,-r*0.6,0);
+    ctx.bezierCurveTo(-r*0.3,r*0.8,r*0.4,r*0.7,r,0);
+    ctx.fill();
+    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2.5; ctx.stroke();
+
+    // Window
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath(); ctx.arc(r*0.3,0,r*0.3,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#0a0a2e";
+    ctx.beginPath(); ctx.arc(r*0.3,0,r*0.18,0,Math.PI*2); ctx.fill();
+
+    // Fins
+    ctx.fillStyle = "#2a7fc9";
+    ctx.beginPath();
+    ctx.moveTo(-r*0.2,-r*0.7); ctx.lineTo(-r*0.8,-r*1.2); ctx.lineTo(-r*0.1,-r*0.5);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-r*0.2,r*0.7); ctx.lineTo(-r*0.8,r*1.2); ctx.lineTo(-r*0.1,r*0.5);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawMinimap() {
+    const mmW = 140, mmH = 140;
+    const mmX = VW - mmW - 12, mmY = VH - mmH - 12;
+    const scale = mmW / WORLD;
+
+    ctx.fillStyle = "rgba(10,10,46,0.85)";
+    ctx.strokeStyle = "rgba(255,255,255,0.3)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect(mmX, mmY, mmW, mmH, 10); ctx.fill(); ctx.stroke();
+
+    // Sun
+    ctx.fillStyle = "#ffc83d";
+    ctx.fillRect(mmX+CX*scale-2, mmY+CY*scale-2, 4, 4);
+
+    // Key orbits
+    [290, 550, 980].forEach(orb => {
+      ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.arc(mmX+CX*scale, mmY+CY*scale, orb*scale, 0, Math.PI*2); ctx.stroke();
+    });
+
+    // Asteroid belt
+    ctx.strokeStyle = "rgba(139,119,101,0.3)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(mmX+CX*scale, mmY+CY*scale, ASTEROID_INNER*scale, 0, Math.PI*2); ctx.stroke();
+
+    // Kuiper
+    ctx.strokeStyle = "rgba(160,200,232,0.25)";
+    ctx.beginPath(); ctx.arc(mmX+CX*scale, mmY+CY*scale, KUIPER_INNER*scale, 0, Math.PI*2); ctx.stroke();
+
+    // Planets
+    planets.forEach(p => {
+      const px = CX + Math.cos(p._angle)*p.orbit, py = CY + Math.sin(p._angle)*p.orbit;
+      ctx.fillStyle = p.found ? p.color : "rgba(255,255,255,0.4)";
+      ctx.fillRect(mmX+px*scale-1.5, mmY+py*scale-1.5, 3, 3);
+    });
+
+    // Target
+    const mission = getCurrentMission();
+    if (mission && mission.type==="planet" && !mission.planet.found) {
+      const p = mission.planet;
+      const px = CX + Math.cos(p._angle)*p.orbit, py = CY + Math.sin(p._angle)*p.orbit;
+      const pulse = 1 + Math.sin(frameCount*0.08)*0.4;
+      ctx.strokeStyle = `rgba(255,200,61,${0.7*pulse})`; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(mmX+px*scale, mmY+py*scale, 6*pulse, 0, Math.PI*2); ctx.stroke();
+    }
+
+    // Rocket
+    ctx.fillStyle = "#4fb3f5";
+    ctx.beginPath(); ctx.arc(mmX+rocket.x*scale, mmY+rocket.y*scale, 2.5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1; ctx.stroke();
+
+    // Viewport
+    ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 1;
+    ctx.strokeRect(mmX+camera.x*scale, mmY+camera.y*scale, VW*scale, VH*scale);
+
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.font = "9px 'DM Mono', monospace"; ctx.textAlign = "center";
+    ctx.fillText("MAP", mmX+mmW/2, mmY-6);
+  }
+
+  function drawBeltLabel(label, innerR, outerR, angle, color) {
+    const dist = (innerR + outerR) / 2;
+    const x = CX + Math.cos(angle)*dist;
+    const y = CY + Math.sin(angle)*dist;
+    if (!isVisible(x, y, 20)) return;
+    const s = worldToScreen(x, y);
+    ctx.fillStyle = color;
+    ctx.font = "11px 'Caveat', cursive";
+    ctx.textAlign = "center";
+    ctx.fillText(label, s.x, s.y);
+  }
+
+  function drawDirectionArrow() {
+    const mission = getCurrentMission();
+    if (!mission || mission.type!=="planet" || mission.planet.found) return;
+    const p = mission.planet;
+    const px = CX + Math.cos(p._angle)*p.orbit;
+    const py = CY + Math.sin(p._angle)*p.orbit;
+    const ts = worldToScreen(px, py);
+
+    if (ts.x>40 && ts.x<VW-40 && ts.y>40 && ts.y<VH-40) return;
+
+    const cx = VW/2, cy = VH/2;
+    const dx = ts.x-cx, dy = ts.y-cy;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    if (dist<1) return;
+    const edgeDist = Math.min(VW/2-20, VH/2-20);
+    const ax = cx + (dx/dist)*edgeDist;
+    const ay = cy + (dy/dist)*edgeDist;
+    const arrowAngle = Math.atan2(dy, dx);
+
+    ctx.save(); ctx.translate(ax, ay); ctx.rotate(arrowAngle);
+    ctx.fillStyle = "#ffc83d";
+    ctx.beginPath();
+    ctx.moveTo(14,0); ctx.lineTo(-8,-9); ctx.lineTo(-4,0); ctx.lineTo(-8,9);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.restore();
+  }
+
+  function draw() {
+    ctx.fillStyle = "#0a0a2e"; ctx.fillRect(0, 0, VW, VH);
+
+    // Stars
+    for (const s of stars) {
+      if (!isVisible(s.x, s.y, 5)) continue;
+      const sc = worldToScreen(s.x, s.y);
+      const alpha = 0.3 + 0.4*(0.5+0.5*Math.sin(s.bright+frameCount*0.01));
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+      ctx.beginPath(); ctx.arc(sc.x, sc.y, s.r, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Orbit lines
+    planets.forEach(p => drawOrbitLine(p.orbit));
+    [ASTEROID_INNER, ASTEROID_OUTER, KUIPER_INNER, KUIPER_OUTER].forEach(r => drawOrbitLine(r, 0.04));
+
+    // Kuiper rocks (no collision!)
+    kuiperRocks.forEach(k => drawKuiperRock(k));
+
+    // Asteroids (no collision!)
+    asteroids.forEach(a => drawAsteroid(a));
+
+    // Planets on top
+    planets.forEach(p => drawOrbitLine(p.orbit));
+
+    // Sun
+    drawSun();
+
+    // Planets
+    planets.forEach(p => drawPlanet(p));
+
+    // Belt labels
+    drawBeltLabel("asteroid belt", ASTEROID_INNER, ASTEROID_OUTER, 1.2, "rgba(180,160,140,0.5)");
+    drawBeltLabel("kuiper belt", KUIPER_INNER, KUIPER_OUTER, 0.8, "rgba(160,200,232,0.45)");
+
+    // Rocket
+    if (!over && (invincibleTimer===0 || Math.floor(invincibleTimer/5)%2===0)) {
+      // Warp trail
+      if (unlockedUpgrades.includes("warp") && keys.space) {
+        ctx.fillStyle = "rgba(180,123,255,0.4)";
+        const rs = worldToScreen(rocket.x, rocket.y);
+        ctx.beginPath(); ctx.arc(rs.x, rs.y, rocket.r+8, 0, Math.PI*2); ctx.fill();
+      }
+      drawRocket(rocket.x, rocket.y, rocket.r, rocket.angle);
+    }
+
+    // Particles
+    for (const p of particles) {
+      if (!isVisible(p.x, p.y, 10)) continue;
+      const sc = worldToScreen(p.x, p.y);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.life/p.maxLife;
+      ctx.beginPath(); ctx.arc(sc.x, sc.y, p.r, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Direction arrow
+    drawDirectionArrow();
+
+    // Minimap
+    drawMinimap();
+
+    // Border warnings
+    const m = 40;
+    if (rocket.x < m) { ctx.fillStyle = "rgba(255,107,107,0.35)"; ctx.fillRect(0,0,4,VH); }
+    if (rocket.x > WORLD-m) { ctx.fillStyle = "rgba(255,107,107,0.35)"; ctx.fillRect(VW-4,0,4,VH); }
+    if (rocket.y < m) { ctx.fillStyle = "rgba(255,107,107,0.35)"; ctx.fillRect(0,0,VW,4); }
+    if (rocket.y > WORLD-m) { ctx.fillStyle = "rgba(255,107,107,0.35)"; ctx.fillRect(0,VH-4,VW,4); }
+  }
+
+  function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+  }
+
+  // ── Input ──────────────────────────────────────────────────────────
+  const keys = { w:false, a:false, s:false, d:false, space:false };
+
+  document.addEventListener("keydown", function(e) {
+    const k = e.key.toLowerCase();
+    if (["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"," "].includes(k)) e.preventDefault();
+    if (k==="w"||k==="arrowup") keys.w=true;
+    if (k==="s"||k==="arrowdown") keys.s=true;
+    if (k==="a"||k==="arrowleft") keys.a=true;
+    if (k==="d"||k==="arrowright") keys.d=true;
+    if (k===" ") keys.space=true;
+    if (k==="r") reset();
+  });
+
+  document.addEventListener("keyup", function(e) {
+    const k = e.key.toLowerCase();
+    if (k==="w"||k==="arrowup") keys.w=false;
+    if (k==="s"||k==="arrowdown") keys.s=false;
+    if (k==="a"||k==="arrowleft") keys.a=false;
+    if (k==="d"||k==="arrowright") keys.d=false;
+    if (k===" ") keys.space=false;
+  });
+
+  canvas.addEventListener("mousemove", function(e) {
+    const rect = canvas.getBoundingClientRect();
+    mouseWorldX = (e.clientX-rect.left)*(VW/rect.width) + camera.x;
+    mouseWorldY = (e.clientY-rect.top)*(VH/rect.height) + camera.y;
+    mouseOnCanvas = true;
+  });
+  canvas.addEventListener("mouseleave", () => { mouseOnCanvas = false; });
+
+  // Touch
+  canvas.addEventListener("touchstart", function(e) {
+    e.preventDefault();
+    const t = e.touches[0]; const rect = canvas.getBoundingClientRect();
+    mouseWorldX = (t.clientX-rect.left)*(VW/rect.width) + camera.x;
+    mouseWorldY = (t.clientY-rect.top)*(VH/rect.height) + camera.y;
+    mouseOnCanvas = true;
+  });
+  canvas.addEventListener("touchmove", function(e) {
+    e.preventDefault();
+    const t = e.touches[0]; const rect = canvas.getBoundingClientRect();
+    const mx = (t.clientX-rect.left)*(VW/rect.width);
+    const my = (t.clientY-rect.top)*(VH/rect.height);
+    mouseWorldX = mx + camera.x; mouseWorldY = my + camera.y;
+    const dx = mouseWorldX-rocket.x, dy = mouseWorldY-rocket.y;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    if (dist > 10) { rocket.vx += (dx/dist)*0.5; rocket.vy += (dy/dist)*0.5; }
+  });
+  canvas.addEventListener("touchend", e => { e.preventDefault(); mouseOnCanvas = false; });
+
+  // Buttons
+  document.getElementById("restart").addEventListener("click", reset);
+  document.getElementById("play-again").addEventListener("click", reset);
+
+  reset();
+  gameLoop();
+})();
+</script>
+
+</body>
+</html>
