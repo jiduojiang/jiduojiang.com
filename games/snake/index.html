@@ -156,6 +156,9 @@
     color: var(--ink);
   }
 
+  /* apple-count picker: same pill row, chips share the width evenly */
+  #apples button { flex: 1; padding: 6px 0; }
+
   /* rule toggles */
   .rules { display: grid; gap: 8px; }
   .rule {
@@ -276,6 +279,16 @@
           </p>
         </div>
         <div class="panel">
+          <h4>🍎 Apples</h4>
+          <div class="diff" id="apples">
+            <button data-count="1" class="is-active">1</button>
+            <button data-count="2">2</button>
+            <button data-count="3">3</button>
+            <button data-count="4">4</button>
+            <button data-count="5">5</button>
+          </div>
+        </div>
+        <div class="panel">
           <h4>⚙️ Rules</h4>
           <div class="rules">
             <button class="rule" data-rule="twoPlayer" type="button">
@@ -358,6 +371,7 @@
     placeApples();
     updateScoreUI();
     updateControlsUI();
+    updateApplesUI();
     document.getElementById("gameover").hidden = true;
     draw();
     // restart the game loop (may have been stopped by endGame)
@@ -527,6 +541,12 @@
     document.getElementById("keys-duo").style.display = isDuo ? "" : "none";
   }
 
+  function updateApplesUI() {
+    document.querySelectorAll("#apples button").forEach(function(b) {
+      b.classList.toggle("is-active", +b.dataset.count === config.appleCount);
+    });
+  }
+
   function draw() {
     ctx.fillStyle = css.getPropertyValue("--bg").trim();
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -636,6 +656,15 @@
 
   document.getElementById("restart").addEventListener("click", reset);
   document.getElementById("play-again").addEventListener("click", reset);
+
+  // ── Apple-count buttons ────────────────────────────────────────────
+  document.querySelectorAll("#apples button").forEach(function(b) {
+    b.addEventListener("click", function() {
+      config.appleCount = +b.dataset.count;
+      saveConfig();
+      reset();
+    });
+  });
 
   // ── Rule toggles ───────────────────────────────────────────────────
   document.querySelectorAll(".rule").forEach(function(btn) {
