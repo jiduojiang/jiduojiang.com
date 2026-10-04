@@ -214,9 +214,9 @@
         <div class="panel">
           <h4>🎮 Controls</h4>
           <div class="keys">
-            <span><b>W</b><b>A</b><b>S</b><b>D</b> fly around</span>
-            <span><b>Mouse</b> point direction</span>
-            <span><b>R</b> restart</span>
+            <span><b>W</b><b>A</b><b>S</b><b>D</b> fly</span>
+            <span><b>Space</b> boost (optional)</span>
+            <span><b>R</b> try again</span>
           </div>
         </div>
         <div class="panel">
@@ -227,15 +227,15 @@
           <h4>⚡ Upgrades (from Earth)</h4>
           <div class="upgrade-list" id="upgrade-list">Visit Earth to get upgrades!</div>
         </div>
-        <button class="btn btn--primary" id="restart" style="justify-content:center;">↻ Restart</button>
+        <button class="btn btn--primary" id="restart" style="justify-content:center;">↻ Start over</button>
       </aside>
     </div>
 
     <div class="gameover" id="gameover" hidden>
       <div class="gameover__box">
-        <div class="gameover__big" id="go-title">Game Over!</div>
-        <div class="gameover__sub" id="go-sub">You discovered <b id="go-found">0</b> planets.</div>
-        <button class="btn btn--primary" id="play-again">play again</button>
+        <div class="gameover__big" id="go-title">Oof! Out of lives</div>
+        <div class="gameover__sub" id="go-sub">You discovered <b id="go-found">0</b> planets. Your progress is saved — nothing is lost.</div>
+        <button class="btn btn--primary" id="play-again">try again</button>
       </div>
     </div>
   </section>
@@ -277,7 +277,8 @@
   // ── Game State ─────────────────────────────────────────────────────
   let rocket, camera, stars, asteroids, kuiperRocks, particles;
   let score, lives, foundCount, over, frameCount;
-  let mouseWorldX, mouseWorldY, mouseOnCanvas;
+  let welcomeTimer = 0;
+  let touchX, touchY;
   let currentMissionIdx;
   let invincibleTimer, missionCompleteTimer, earthVisitTimer;
   let upgradeLevel, unlockedUpgrades;
@@ -297,29 +298,73 @@
     };
   });
 
+  // ── Saved progress ─────────────────────────────────────────────────
+  // Running out of lives used to throw away a whole exploration. The run is now
+  // mirrored into localStorage, so dying is just "try again".
+  const SAVE_KEY = "sse.progress";
+
+  function saveProgress() {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        v: 1,
+        currentMissionIdx, score, lives, upgradeLevel, unlockedUpgrades,
+        foundIds: planets.filter(p => p.found).map(p => p.name)
+      }));
+    } catch { /* private mode, or quota full — the game still plays, it just won't resume */ }
+  }
+
+  function clearSave() {
+    try { localStorage.removeItem(SAVE_KEY); } catch {}
+  }
+
+  // Returns a usable save, or null. Anything unexpected falls back to a fresh
+  // game — a corrupt save must never break the page.
+  function readSave() {
+    try {
+      const s = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+      if (!s || s.v !== 1) return null;
+      if (!Number.isInteger(s.currentMissionIdx)) return null;
+      if (s.currentMissionIdx < 0 || s.currentMissionIdx > missions.length) return null;
+      if (!Array.isArray(s.foundIds) || !Array.isArray(s.unlockedUpgrades)) return null;
+      if (!Number.isFinite(s.score) || !Number.isFinite(s.lives)) return null;
+      return s;
+    } catch { return null; }
+  }
+
   function getCurrentMission() {
     if (currentMissionIdx >= missions.length) return null;
     return missions[currentMissionIdx];
   }
 
-  function reset() {
+  // reset() with no argument starts a brand-new game. reset(save) resumes one.
+  // Neither touches the stored save — only retry() and startOver() do.
+  function reset(save) {
     rocket = { x: CX + 270, y: CY + 20, vx: 0, vy: 0, r: 12, angle: 0 };
     camera = { x: rocket.x - VW/2, y: rocket.y - VH/2 };
     particles = [];
-    score = 0;
-    lives = 3;
-    foundCount = 0;
     over = false;
     frameCount = 0;
-    currentMissionIdx = 0;
     invincibleTimer = 0;
     missionCompleteTimer = 0;
     earthVisitTimer = 0;
-    upgradeLevel = 0;
-    unlockedUpgrades = [];
+
+    score = save ? save.score : 0;
+    lives = save ? save.lives : 3;
+    upgradeLevel = save ? save.upgradeLevel : 0;
+    unlockedUpgrades = save ? save.unlockedUpgrades.slice() : [];
+    currentMissionIdx = save ? save.currentMissionIdx : 0;
+    // Replay the upgrades so speedMultiplier and the shield come back too.
     speedMultiplier = 1;
+    unlockedUpgrades.forEach(id => applyUpgrade({ id }));
 
     planets.forEach(p => { p.found = false; p._angle = Math.random() * Math.PI * 2; });
+    if (save) planets.forEach(p => { if (save.foundIds.includes(p.name)) p.found = true; });
+    foundCount = planets.filter(p => p.found).length;
+    // Greet a returning player for a few seconds. A timer rather than a one-shot
+    // flag: the rocket spawns right next to Earth, so a returning player usually
+    // triggers an upgrade immediately and its message would swallow a one-shot
+    // greeting before they ever saw it.
+    welcomeTimer = (save && currentMissionIdx > 0) ? 240 : 0;
 
     generateStars();
     generateAsteroids();
@@ -411,6 +456,9 @@
     bossAvatar.textContent = "👽";
     const m = missions[currentMissionIdx];
     const p = m.planet;
+    // Greeting rides along with the mission line, never replaces it — otherwise
+    // a returning player would see "welcome back" and not know where to fly.
+    const welcome = welcomeTimer > 0 ? "Welcome back, cadet! " : "";
     let hint = "";
     const od = p.orbit;
     if (od < 200) hint = "Very close to the Sun!";
@@ -420,7 +468,7 @@
     else if (od < 800) hint = "Outer solar system, look for rings!";
     else if (od < 950) hint = "Far out, an icy blue planet.";
     else hint = "Way past everything, deep blue.";
-    bossText.innerHTML = `${m.text} <span style="color:var(--ink-soft);font-size:var(--t-xs)">📍 ${hint}</span>`;
+    bossText.innerHTML = `${welcome}${m.text} <span style="color:var(--ink-soft);font-size:var(--t-xs)">📍 ${hint}</span>`;
   }
 
   function updateMissionList() {
@@ -509,6 +557,7 @@
       giveEarthUpgrade();
     }
 
+    saveProgress();
     updateUI();
     updateBossText();
     updateMissionList();
@@ -533,6 +582,7 @@
     frameCount++;
 
     if (invincibleTimer > 0) invincibleTimer--;
+    if (welcomeTimer > 0) welcomeTimer--;
     if (missionCompleteTimer > 0) {
       missionCompleteTimer--;
       if (missionCompleteTimer === 0) updateBossText();
@@ -542,31 +592,35 @@
       if (earthVisitTimer === 0) updateBossText();
     }
 
-    // Rocket rotation (A/D turn left/right)
-    const turnSpeed = 0.06;
-    if (keys.a) rocket.angle -= turnSpeed;
-    if (keys.d) rocket.angle += turnSpeed;
+    // Direct 8-way movement. WASD (or the arrow keys) push the rocket wherever
+    // you point — no mouse aiming. The cursor used to hijack rocket.angle every
+    // frame, which stole A/D from the keyboard and made flying feel broken.
+    let inX = 0, inY = 0;
+    if (keys.w) inY -= 1;
+    if (keys.s) inY += 1;
+    if (keys.a) inX -= 1;
+    if (keys.d) inX += 1;
 
-    // Rocket thrust (W = forward, S = backward)
     const accel = 0.3;
     const baseMaxSpeed = 4;
     const maxSpeed = baseMaxSpeed * speedMultiplier;
     const friction = 0.94;
-    if (keys.w) {
-      rocket.vx += Math.cos(rocket.angle) * accel;
-      rocket.vy += Math.sin(rocket.angle) * accel;
-    }
-    if (keys.s) {
-      rocket.vx -= Math.cos(rocket.angle) * accel * 0.6;
-      rocket.vy -= Math.sin(rocket.angle) * accel * 0.6;
+
+    const inLen = Math.sqrt(inX*inX + inY*inY);
+    if (inLen > 0) {
+      inX /= inLen; inY /= inLen;      // normalise, so diagonals aren't faster
+      rocket.vx += inX * accel;
+      rocket.vy += inY * accel;
     }
 
-    // Jump / Warp boost (SPACE)
+    // Boost (SPACE) — a bonus dash on top. Flying never requires it.
     if (keys.space) {
       const boost = unlockedUpgrades.includes("warp") ? 2.5 : 1.8;
-      rocket.vx += Math.cos(rocket.angle) * boost;
-      rocket.vy += Math.sin(rocket.angle) * boost;
-      keys.space = false; // one press = one jump/boost
+      const bx = inLen > 0 ? inX : Math.cos(rocket.angle);
+      const by = inLen > 0 ? inY : Math.sin(rocket.angle);
+      rocket.vx += bx * boost;
+      rocket.vy += by * boost;
+      keys.space = false; // one press = one boost
     }
 
     rocket.vx *= friction;
@@ -579,8 +633,14 @@
     rocket.x = Math.max(20, Math.min(WORLD-20, rocket.x));
     rocket.y = Math.max(20, Math.min(WORLD-20, rocket.y));
 
-    if (mouseOnCanvas) {
-      rocket.angle = Math.atan2(mouseWorldY - rocket.y, mouseWorldX - rocket.x);
+    // Turn to face wherever it is heading. Skipped at very low speed, where the
+    // velocity direction is just noise.
+    if (spd > 0.4) {
+      const want = Math.atan2(rocket.vy, rocket.vx);
+      let diff = want - rocket.angle;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      rocket.angle += diff * 0.25;
     }
 
     // Camera
@@ -649,10 +709,33 @@
 
   function endGame() {
     over = true;
+    saveProgress();
     spawnParticles(rocket.x, rocket.y, "#ffc83d", 40);
     updateBossText();
     document.getElementById("go-found").textContent = foundCount;
     document.getElementById("gameover").hidden = false;
+  }
+
+  // Try again after running out of lives: keep every discovery, refill the lives.
+  function retry() {
+    const save = readSave();
+    if (save) {
+      save.lives = 3;
+      reset(save);
+      // Persist the refilled lives. Without this a player who retries and then
+      // closes the page comes back holding the 0 lives they died with, and the
+      // very next touch of the Sun ends the run again.
+      saveProgress();
+    } else {
+      reset();
+    }
+  }
+
+  // The only way to lose progress, and the player has to confirm it first.
+  function startOver() {
+    if (!confirm("Start over from the very beginning? You will lose all your progress.")) return;
+    clearSave();
+    reset();
   }
 
   // ── Drawing ────────────────────────────────────────────────────────
@@ -1032,10 +1115,18 @@
     if (rocket.y > WORLD-m) { ctx.fillStyle = "rgba(255,107,107,0.35)"; ctx.fillRect(0,VH-4,VW,4); }
   }
 
+  let frameErrors = 0;
   function gameLoop() {
-    update();
-    draw();
+    // Re-arm BEFORE doing any work. A single bad frame used to kill
+    // requestAnimationFrame for good: the game froze on its last picture with
+    // every key dead until a page reload. Now one bad frame just gets skipped.
     requestAnimationFrame(gameLoop);
+    try {
+      update();
+      draw();
+    } catch (err) {
+      if (frameErrors++ < 5) console.error("skipped a bad frame:", err);
+    }
   }
 
   // ── Input ──────────────────────────────────────────────────────────
@@ -1049,7 +1140,7 @@
     if (k==="a"||k==="arrowleft") keys.a=true;
     if (k==="d"||k==="arrowright") keys.d=true;
     if (k===" ") keys.space=true;
-    if (k==="r") reset();
+    if (k==="r") retry();
   });
 
   document.addEventListener("keyup", function(e) {
@@ -1061,39 +1152,30 @@
     if (k===" ") keys.space=false;
   });
 
-  canvas.addEventListener("mousemove", function(e) {
-    const rect = canvas.getBoundingClientRect();
-    mouseWorldX = (e.clientX-rect.left)*(VW/rect.width) + camera.x;
-    mouseWorldY = (e.clientY-rect.top)*(VH/rect.height) + camera.y;
-    mouseOnCanvas = true;
-  });
-  canvas.addEventListener("mouseleave", () => { mouseOnCanvas = false; });
-
-  // Touch
+  // Touch — drag away from the rocket to push it that way. Same direct-movement
+  // model as the keyboard, and the rocket turns to face the drag.
   canvas.addEventListener("touchstart", function(e) {
     e.preventDefault();
     const t = e.touches[0]; const rect = canvas.getBoundingClientRect();
-    mouseWorldX = (t.clientX-rect.left)*(VW/rect.width) + camera.x;
-    mouseWorldY = (t.clientY-rect.top)*(VH/rect.height) + camera.y;
-    mouseOnCanvas = true;
+    touchX = (t.clientX-rect.left)*(VW/rect.width) + camera.x;
+    touchY = (t.clientY-rect.top)*(VH/rect.height) + camera.y;
   });
   canvas.addEventListener("touchmove", function(e) {
     e.preventDefault();
     const t = e.touches[0]; const rect = canvas.getBoundingClientRect();
-    const mx = (t.clientX-rect.left)*(VW/rect.width);
-    const my = (t.clientY-rect.top)*(VH/rect.height);
-    mouseWorldX = mx + camera.x; mouseWorldY = my + camera.y;
-    const dx = mouseWorldX-rocket.x, dy = mouseWorldY-rocket.y;
+    touchX = (t.clientX-rect.left)*(VW/rect.width) + camera.x;
+    touchY = (t.clientY-rect.top)*(VH/rect.height) + camera.y;
+    const dx = touchX-rocket.x, dy = touchY-rocket.y;
     const dist = Math.sqrt(dx*dx+dy*dy);
     if (dist > 10) { rocket.vx += (dx/dist)*0.5; rocket.vy += (dy/dist)*0.5; }
   });
-  canvas.addEventListener("touchend", e => { e.preventDefault(); mouseOnCanvas = false; });
+  canvas.addEventListener("touchend", e => { e.preventDefault(); });
 
   // Buttons
-  document.getElementById("restart").addEventListener("click", reset);
-  document.getElementById("play-again").addEventListener("click", reset);
+  document.getElementById("restart").addEventListener("click", startOver);
+  document.getElementById("play-again").addEventListener("click", retry);
 
-  reset();
+  reset(readSave());
   gameLoop();
 })();
 </script>
