@@ -1,0 +1,1621 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dodgeball · jiduojiang.com</title>
+
+<link rel="stylesheet" href="/shared/fonts.css">
+<link rel="stylesheet" href="/shared/tokens.css">
+<link rel="stylesheet" href="/shared/components.css">
+
+<style>
+  /* Page-specific bits only. Everything reusable lives in shared/. */
+  .proj { --crayon: var(--c1); }
+  .proj__emoji { --card-bg: var(--crayon); }
+
+  .proj__board { position: relative; }
+
+  .hud {
+    display: flex;
+    justify-content: center;
+    margin-bottom: var(--sp-5);
+    scroll-margin-top: 14px;
+  }
+  .score-row {
+    display: flex;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .score__chip {
+    background: var(--bg);
+    border: 2px dashed var(--ink);
+    border-radius: var(--r-md);
+    padding: 9px 15px;
+    font-family: var(--f-display);
+    font-size: var(--t-lg);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .score__chip .lbl {
+    font-size: var(--t-xs);
+    font-family: var(--f-mono);
+    color: var(--ink-soft);
+  }
+  .score__chip .num { font-variant-numeric: tabular-nums; }
+  .score__chip.best { border-style: solid; }
+  .score__chip.best .lbl { color: var(--crayon); }
+  .hearts .num { font-size: var(--t-md); letter-spacing: 1px; }
+
+  .game-wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 230px;
+    gap: var(--sp-6);
+    align-items: start;
+  }
+
+  .stage {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .canvas-wrap { position: relative; width: 100%; }
+
+  #board {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: var(--bg);
+    border: var(--stroke);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-stamp);
+    touch-action: none;
+    cursor: crosshair;
+  }
+
+  .action-btn {
+    width: 100%;
+    justify-content: center;
+    margin-top: var(--sp-4);
+    font-size: var(--t-lg);
+  }
+
+  /* ── wave banner over the court ─────────────────── */
+  .banner {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 8px;
+    pointer-events: none;
+    text-align: center;
+  }
+  .banner[hidden] { display: none; }
+  .banner__big {
+    font-family: var(--f-display);
+    font-size: clamp(32px, 8vw, 54px);
+    line-height: 1;
+    color: var(--ink);
+    background: var(--c2);
+    border: var(--stroke);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-stamp-lg);
+    padding: 12px 26px;
+    transform: rotate(-2deg);
+  }
+  .banner.is-on .banner__big { animation: bannerPop .4s var(--ease-bounce); }
+  .banner__sub {
+    font-family: var(--f-hand);
+    font-size: clamp(20px, 5vw, 30px);
+    color: var(--surface);
+    background: rgba(42,38,34,.72);
+    border-radius: var(--r-pill);
+    padding: 2px 16px;
+  }
+
+  /* ── start / game-over overlays ─────────────────── */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow-y: auto;
+    padding: 18px;
+    background: rgba(42,38,34,.58);
+    backdrop-filter: blur(4px);
+  }
+  .overlay[hidden] { display: none; }
+  .overlay__box {
+    width: 100%;
+    max-width: 440px;
+    margin: auto;
+    background: var(--surface);
+    border: var(--stroke);
+    border-radius: var(--r-2xl);
+    box-shadow: var(--shadow-stamp-lg);
+    padding: 24px 28px 26px;
+    text-align: center;
+    animation: pop .3s var(--ease-bounce);
+  }
+  .overlay__ball {
+    font-size: 50px;
+    line-height: 1;
+    display: inline-block;
+    transform: rotate(-8deg);
+  }
+  .overlay__title {
+    font-family: var(--f-display);
+    font-size: var(--t-h2);
+    margin: 6px 0 6px;
+  }
+  .overlay__sub {
+    color: var(--ink-soft);
+    font-size: var(--t-base);
+    line-height: 1.45;
+  }
+  .overlay__sub b { color: var(--ink); }
+  .overlay .btn {
+    width: 100%;
+    justify-content: center;
+    margin-top: 16px;
+  }
+
+  .howto {
+    display: flex;
+    gap: 8px;
+    margin: 16px 0 0;
+    text-align: left;
+  }
+  .howto__item {
+    flex: 1;
+    background: var(--bg);
+    border: 2px dashed var(--ink);
+    border-radius: var(--r-md);
+    padding: 9px 10px;
+    font-size: var(--t-xs);
+    color: var(--ink-soft);
+    line-height: 1.35;
+  }
+  .howto__item .emo {
+    display: block;
+    font-size: 21px;
+    margin-bottom: 3px;
+  }
+  .howto__item b {
+    display: block;
+    font-family: var(--f-display);
+    font-size: var(--t-sm);
+    color: var(--ink);
+    margin-bottom: 2px;
+  }
+
+  @keyframes pop {
+    from { transform: scale(.78); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+  }
+  @keyframes bannerPop {
+    from { transform: scale(.6) rotate(-7deg); opacity: 0; }
+    to   { transform: scale(1) rotate(-2deg);  opacity: 1; }
+  }
+
+  /* ── sidebar ────────────────────────────────────── */
+  .sidebar {
+    width: 230px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+  .panel {
+    background: var(--bg);
+    border: var(--stroke);
+    border-radius: var(--r-xl);
+    padding: 16px 18px;
+  }
+  .panel h4 {
+    font-family: var(--f-display);
+    font-size: var(--t-md);
+    margin-bottom: 9px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .keys {
+    display: grid;
+    gap: 6px;
+    font-family: var(--f-mono);
+    font-size: var(--t-sm);
+    color: var(--ink-soft);
+  }
+  .keys span b {
+    color: var(--ink);
+    background: var(--surface);
+    border: 2px solid var(--ink);
+    border-radius: 6px;
+    padding: 2px 8px;
+    box-shadow: 2px 2px 0 var(--ink);
+    margin-right: 4px;
+    font-family: var(--f-mono);
+  }
+  .panel__note {
+    margin-top: 10px;
+    font-size: var(--t-xs);
+    color: var(--ink-soft);
+    line-height: 1.45;
+  }
+  .score-list {
+    display: grid;
+    gap: 6px;
+    font-size: var(--t-sm);
+    color: var(--ink-soft);
+  }
+  .score-list div {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .score-list b { color: var(--ink); }
+  .sound-btn { width: 100%; justify-content: center; }
+
+  @media (max-width: 720px) {
+    .game-wrap { grid-template-columns: 1fr; gap: var(--sp-5); }
+    .sidebar { width: 100%; max-width: 600px; margin: 0 auto; }
+    .score__chip { padding: 7px 11px; font-size: var(--t-md); }
+    .overlay__box { padding: 18px 20px 20px; }
+    .howto {
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 12px;
+    }
+    .howto__item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+    }
+    .howto__item .emo { display: inline; margin: 0; font-size: 18px; }
+    .howto__item b { display: inline; margin: 0; }
+  }
+
+  @media (max-width: 420px) {
+    .overlay { padding: 10px; }
+    .overlay__box { padding: 14px 14px 16px; }
+    .overlay__ball { font-size: 36px; }
+    .overlay__title { font-size: var(--t-xl); }
+    .overlay__sub { font-size: var(--t-sm); }
+    .overlay .btn { margin-top: 12px; padding: 10px 16px; font-size: var(--t-base); }
+  }
+</style>
+</head>
+<body>
+
+<main class="proj">
+  <header class="topbar">
+    <a class="brand" href="/">
+      <div class="brand-mark">J</div>
+      <div>
+        <div class="brand-name">jiduojiang<span class="dot">.</span>com</div>
+        <div class="brand-sub">// back to all projects</div>
+      </div>
+    </a>
+    <a class="proj__back" href="/">← home</a>
+  </header>
+
+  <div class="proj__head">
+    <div class="proj__emoji">🥎</div>
+    <div>
+      <h1 class="proj__title" style="font-size: var(--t-h1)">Dodgeball</h1>
+      <p style="color: var(--ink-soft); margin-top: 6px;">Dodge. Catch. Throw it back!</p>
+    </div>
+  </div>
+
+  <section class="proj__board">
+    <div class="hud">
+      <div class="score-row">
+        <div class="score__chip hearts"><span class="lbl">LIVES</span><span class="num" id="hearts">❤️❤️❤️</span></div>
+        <div class="score__chip"><span class="lbl">WAVE</span><span class="num" id="wave">1</span></div>
+        <div class="score__chip"><span class="lbl">SCORE</span><span class="num" id="score">0</span></div>
+        <div class="score__chip best"><span class="lbl">BEST</span><span class="num" id="best">0</span></div>
+      </div>
+    </div>
+
+    <div class="game-wrap">
+      <div class="stage">
+        <div class="canvas-wrap">
+          <canvas id="board" width="600" height="600" aria-label="Dodgeball court"></canvas>
+
+          <div class="banner" id="banner" hidden>
+            <div class="banner__big" id="banner-big">WAVE 1</div>
+            <div class="banner__sub" id="banner-sub">Get ready!</div>
+          </div>
+
+          <div class="overlay" id="start-overlay">
+            <div class="overlay__box">
+              <div class="overlay__ball">🥎</div>
+              <h2 class="overlay__title">Dodgeball!</h2>
+              <p class="overlay__sub">Dodge the balls. Catch them. Throw them back!</p>
+              <div class="howto">
+                <div class="howto__item">
+                  <span class="emo">🏃</span><b>Move</b><span>WASD or arrows. Drag on a tablet.</span>
+                </div>
+                <div class="howto__item">
+                  <span class="emo">✋</span><b>Catch</b><span>Press Space when the ring shows.</span>
+                </div>
+                <div class="howto__item">
+                  <span class="emo">🏐</span><b>Throw</b><span>Press Space again. Aim is automatic!</span>
+                </div>
+              </div>
+              <button class="btn btn--primary" id="start-btn" type="button">Let's play! 🥎</button>
+            </div>
+          </div>
+
+          <div class="overlay" id="gameover" hidden>
+            <div class="overlay__box">
+              <div class="overlay__ball">😅</div>
+              <h2 class="overlay__title">Game over!</h2>
+              <p class="overlay__sub">
+                You scored <b id="go-score">0</b> points and reached wave <b id="go-wave">1</b>.<br>
+                Best: <b id="go-best">0</b>
+              </p>
+              <button class="btn btn--primary" id="play-again" type="button">Play again</button>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn--primary action-btn" id="action-btn" type="button">✋ Catch!</button>
+      </div>
+
+      <aside class="sidebar">
+        <div class="panel">
+          <h4>🎮 How to play</h4>
+          <div class="keys">
+            <span><b>W</b><b>A</b><b>S</b><b>D</b> move</span>
+            <span><b>←</b><b>↑</b><b>↓</b><b>→</b> move</span>
+            <span><b>Space</b> catch / throw</span>
+            <span><b>R</b> restart</span>
+          </div>
+          <p class="panel__note">On a tablet: drag to move, then tap the big button to catch and throw.</p>
+        </div>
+        <div class="panel">
+          <h4>⭐ Points</h4>
+          <div class="score-list">
+            <div><span>✋ Catch a ball</span><b>+5</b></div>
+            <div><span>🎯 Hit an opponent</span><b>+15</b></div>
+            <div><span>🏆 Clear a wave</span><b>+25</b></div>
+          </div>
+        </div>
+        <div class="panel">
+          <h4>🔊 Sound</h4>
+          <button class="btn btn--ghost sound-btn" id="sound-btn" type="button">🔊 Sound: on</button>
+        </div>
+        <button class="btn btn--primary" id="restart" type="button" style="justify-content:center;">↻ Restart</button>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  // ── Canvas + design tokens ─────────────────────────────────────────
+  const VW = 600, VH = 600;
+  const canvas = document.getElementById("board");
+  const ctx = canvas.getContext("2d");
+
+  const css = getComputedStyle(document.documentElement);
+  const token = function (name, fallback) {
+    return css.getPropertyValue(name).trim() || fallback;
+  };
+  const C = {
+    bg: token("--bg", "#fbf5e6"),
+    surface: token("--surface", "#ffffff"),
+    ink: token("--ink", "#2a2622"),
+    soft: token("--ink-soft", "#6a5f55"),
+    c1: token("--c1", "#ff6b6b"),
+    c2: token("--c2", "#ffc83d"),
+    c3: token("--c3", "#4fb3f5"),
+    c4: token("--c4", "#61c97a"),
+    c5: token("--c5", "#b67bff"),
+    c6: token("--c6", "#ff97c5"),
+  };
+
+  function rgba(hex, alpha) {
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    if (!m) return hex;
+    return "rgba(" + parseInt(m[1], 16) + "," + parseInt(m[2], 16) + "," + parseInt(m[3], 16) + "," + alpha + ")";
+  }
+
+  // ── Court layout ───────────────────────────────────────────────────
+  const COURT = { left: 26, top: 26, right: VW - 26, bottom: VH - 26 };
+  const LINE_Y = 338;
+  const PLAYER_R = 20;
+  const OPP_R = 21;
+  const BALL_R = 11;
+  const CATCH_RANGE = 82;
+  const MAX_HEARTS = 3;
+  const PLAYER_SPEED = 4.6;
+  const PLAYER_MIN_X = COURT.left + PLAYER_R + 4;
+  const PLAYER_MAX_X = COURT.right - PLAYER_R - 4;
+  const PLAYER_MIN_Y = LINE_Y + PLAYER_R + 8;
+  const PLAYER_MAX_Y = COURT.bottom - PLAYER_R - 8;
+
+  // ── DOM ────────────────────────────────────────────────────────────
+  const heartsEl = document.getElementById("hearts");
+  const waveEl = document.getElementById("wave");
+  const scoreEl = document.getElementById("score");
+  const bestEl = document.getElementById("best");
+  const hudEl = document.querySelector(".hud");
+  const banner = document.getElementById("banner");
+  const bannerBig = document.getElementById("banner-big");
+  const bannerSub = document.getElementById("banner-sub");
+  const startOverlay = document.getElementById("start-overlay");
+  const gameoverEl = document.getElementById("gameover");
+  const goScoreEl = document.getElementById("go-score");
+  const goWaveEl = document.getElementById("go-wave");
+  const goBestEl = document.getElementById("go-best");
+  const actionBtn = document.getElementById("action-btn");
+  const soundBtn = document.getElementById("sound-btn");
+
+  // ── State ──────────────────────────────────────────────────────────
+  let player, opponents, balls, particles, floaters;
+  let score = 0, hearts = MAX_HEARTS, wave = 1;
+  let running = false, over = false, started = false;
+  let invincible = 0, shake = 0, throwAnim = 0, catchFlash = 0;
+  let canCatchBall = null;
+  let nextWaveIn = 0;
+  let wavePauseUntil = 0;
+  let nextThrowAt = 0;
+  let bannerTimer = null;
+  const keys = { up: false, down: false, left: false, right: false };
+  const pointer = { active: false, x: 0, y: 0 };
+  let best = loadNumber("dodgeball.best", 0);
+  let soundOn = loadSound();
+
+  // ── Saved bits ─────────────────────────────────────────────────────
+  function loadNumber(key, fallback) {
+    try {
+      const v = Number(localStorage.getItem(key));
+      return Number.isFinite(v) && v > 0 ? v : fallback;
+    } catch (err) {
+      return fallback;
+    }
+  }
+  function loadSound() {
+    try { return localStorage.getItem("dodgeball.sound") !== "off"; }
+    catch (err) { return true; }
+  }
+  function saveSound() {
+    try { localStorage.setItem("dodgeball.sound", soundOn ? "on" : "off"); }
+    catch (err) { /* private mode — sound still works, it just won't remember */ }
+  }
+  function saveBest() {
+    try { localStorage.setItem("dodgeball.best", String(best)); }
+    catch (err) { /* private mode — the score still shows this visit */ }
+  }
+
+  // ── Tiny synthesised sound effects ─────────────────────────────────
+  let audioCtx = null;
+
+  function ensureAudio() {
+    if (!soundOn) return;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!audioCtx) audioCtx = new AC();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+    } catch (err) {
+      audioCtx = null;
+    }
+  }
+
+  function beep(freq, dur, type, vol, slideTo, delay) {
+    if (!soundOn || !audioCtx) return;
+    try {
+      const t0 = audioCtx.currentTime + (delay || 0);
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type || "sine";
+      osc.frequency.setValueAtTime(freq, t0);
+      if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(vol || 0.04, t0 + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.02);
+    } catch (err) {
+      /* Sound is a bonus, never a reason to break the game. */
+    }
+  }
+
+  function playStart() {
+    ensureAudio();
+    beep(440, 0.1, "sine", 0.04);
+    beep(660, 0.14, "sine", 0.04, null, 0.09);
+  }
+  function playThrow() { beep(280, 0.1, "triangle", 0.03, 160); }
+  function playCatch() {
+    beep(720, 0.09, "sine", 0.045);
+    beep(1040, 0.12, "sine", 0.035, null, 0.08);
+  }
+  function playPickup() { beep(520, 0.07, "sine", 0.03); }
+  function playKnockout() {
+    beep(300, 0.08, "square", 0.03, 500);
+    beep(720, 0.12, "sine", 0.035, null, 0.09);
+  }
+  function playHurt() { beep(170, 0.22, "sawtooth", 0.04, 80); }
+  function playWhiff() { beep(190, 0.05, "sine", 0.018); }
+  function playWaveClear() {
+    beep(523, 0.1, "sine", 0.035);
+    beep(659, 0.1, "sine", 0.035, null, 0.09);
+    beep(784, 0.16, "sine", 0.04, null, 0.18);
+  }
+  function playGameOver() {
+    beep(392, 0.16, "triangle", 0.035);
+    beep(330, 0.16, "triangle", 0.035, null, 0.14);
+    beep(262, 0.26, "triangle", 0.04, null, 0.28);
+  }
+
+  function updateSoundButton() {
+    soundBtn.textContent = soundOn ? "🔊 Sound: on" : "🔇 Sound: off";
+  }
+  function toggleSound() {
+    soundOn = !soundOn;
+    saveSound();
+    updateSoundButton();
+    if (soundOn) {
+      ensureAudio();
+      beep(700, 0.08, "sine", 0.04);
+    }
+  }
+
+  // ── HUD ────────────────────────────────────────────────────────────
+  function updateHUD() {
+    heartsEl.textContent =
+      "❤️".repeat(Math.max(0, hearts)) + "🖤".repeat(Math.max(0, MAX_HEARTS - hearts));
+    waveEl.textContent = wave;
+    scoreEl.textContent = score;
+    bestEl.textContent = best;
+    if (player) actionBtn.textContent = player.held ? "🏐 Throw!" : "✋ Catch!";
+  }
+
+  // ── Waves ──────────────────────────────────────────────────────────
+  function makeOpponents(w) {
+    const count = Math.min(5, w + 2);
+    const jerseyColors = [C.c1, C.c6, C.c3, C.c5, C.c2];
+    const list = [];
+    const left = COURT.left + 54;
+    const right = COURT.right - 54;
+    for (let i = 0; i < count; i++) {
+      const t = count === 1 ? 0.5 : i / (count - 1);
+      list.push({
+        x: left + t * (right - left),
+        y: 132 + (i % 2 === 0 ? -10 : 20),
+        r: OPP_R,
+        alive: true,
+        jersey: jerseyColors[i % jerseyColors.length],
+        timer: 900 + i * 420 + Math.random() * 500,
+        windup: 0,
+        look: { x: 0, y: 1 },
+      });
+    }
+    return list;
+  }
+
+  function startNextWave(first) {
+    wave++;
+    opponents = makeOpponents(wave);
+    balls = [];
+    particles = [];
+    floaters = [];
+    nextWaveIn = 0;
+    nextThrowAt = 0;
+    wavePauseUntil = performance.now() + 1200;
+
+    if (first) {
+      showBanner("WAVE 1", "Get ready!", 1500);
+    } else {
+      const before = hearts;
+      hearts = Math.min(MAX_HEARTS, hearts + 1);
+      showBanner("WAVE " + wave, hearts > before ? "Nice! +1 heart" : "Keep going!", 1500);
+    }
+    updateHUD();
+  }
+
+  function newGame() {
+    score = 0;
+    hearts = MAX_HEARTS;
+    wave = 0;
+    over = false;
+    running = true;
+    started = true;
+    invincible = 0;
+    shake = 0;
+    throwAnim = 0;
+    catchFlash = 0;
+    canCatchBall = null;
+    nextWaveIn = 0;
+    nextThrowAt = 0;
+    player = { x: VW / 2, y: 496, held: 0, face: { x: 0, y: -1 } };
+    balls = [];
+    particles = [];
+    floaters = [];
+    pointer.active = false;
+    keys.up = keys.down = keys.left = keys.right = false;
+    startOverlay.hidden = true;
+    gameoverEl.hidden = true;
+    startNextWave(true);
+    updateHUD();
+    playStart();
+  }
+
+  function onWaveClear() {
+    if (nextWaveIn > 0) return;
+    nextWaveIn = 900;
+    score += 25;
+    balls = [];
+    burst(VW / 2, LINE_Y, C.c2, 28, 6);
+    playWaveClear();
+    showBanner("WAVE CLEAR!", "+25 points", 850);
+    updateHUD();
+  }
+
+  function showBanner(big, sub, ms) {
+    bannerBig.textContent = big;
+    bannerSub.textContent = sub;
+    banner.hidden = false;
+    banner.classList.remove("is-on");
+    void banner.offsetWidth;
+    banner.classList.add("is-on");
+    if (bannerTimer) clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(function () {
+      banner.hidden = true;
+      banner.classList.remove("is-on");
+    }, ms);
+  }
+
+  function hideBanner() {
+    if (bannerTimer) clearTimeout(bannerTimer);
+    bannerTimer = null;
+    banner.hidden = true;
+    banner.classList.remove("is-on");
+  }
+
+  function startGame() {
+    ensureAudio();
+    hideBanner();
+    newGame();
+    // The intro is a fixed full-screen card, so the court may be below the
+    // fold. Bring the score bar and court into view once the card goes away.
+    try {
+      hudEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (err) {
+      hudEl.scrollIntoView();
+    }
+  }
+
+  function initPreview() {
+    player = { x: VW / 2, y: 496, held: 0, face: { x: 0, y: -1 } };
+    opponents = makeOpponents(1);
+    balls = [];
+    particles = [];
+    floaters = [];
+    score = 0;
+    hearts = MAX_HEARTS;
+    wave = 1;
+    running = false;
+    over = false;
+    started = false;
+    startOverlay.hidden = false;
+    gameoverEl.hidden = true;
+    updateHUD();
+    updateSoundButton();
+  }
+
+  // ── Update ─────────────────────────────────────────────────────────
+  function update(dtMs, dt) {
+    if (!running || over) return;
+
+    if (invincible > 0) invincible = Math.max(0, invincible - dtMs);
+    if (shake > 0) shake = Math.max(0, shake - dtMs);
+    if (throwAnim > 0) throwAnim = Math.max(0, throwAnim - dtMs);
+    if (catchFlash > 0) catchFlash = Math.max(0, catchFlash - dtMs);
+
+    updatePlayer(dt);
+    updateOpponents(dtMs, performance.now());
+    updateBalls(dt);
+    if (over) return;
+
+    updateParticles(dtMs, dt);
+    updateFloaters(dtMs);
+    canCatchBall = computeCanCatch();
+
+    if (nextWaveIn > 0) {
+      nextWaveIn -= dtMs;
+      if (nextWaveIn <= 0) {
+        nextWaveIn = 0;
+        startNextWave(false);
+      }
+    } else if (opponents.length && opponents.every(function (o) { return !o.alive; })) {
+      onWaveClear();
+    }
+  }
+
+  function updatePlayer(dt) {
+    let ix = 0, iy = 0;
+    if (keys.left) ix -= 1;
+    if (keys.right) ix += 1;
+    if (keys.up) iy -= 1;
+    if (keys.down) iy += 1;
+
+    if (ix !== 0 || iy !== 0) {
+      const len = Math.hypot(ix, iy);
+      player.x += (ix / len) * PLAYER_SPEED * dt;
+      player.y += (iy / len) * PLAYER_SPEED * dt;
+      player.face.x = ix / len;
+      player.face.y = iy / len;
+    } else if (pointer.active) {
+      const dx = pointer.x - player.x;
+      const dy = pointer.y - player.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 3) {
+        const step = Math.min(d, PLAYER_SPEED * 1.08 * dt);
+        player.x += (dx / d) * step;
+        player.y += (dy / d) * step;
+        player.face.x = dx / d;
+        player.face.y = dy / d;
+      }
+    }
+
+    player.x = clamp(player.x, PLAYER_MIN_X, PLAYER_MAX_X);
+    player.y = clamp(player.y, PLAYER_MIN_Y, PLAYER_MAX_Y);
+  }
+
+  function updateOpponents(dtMs, now) {
+    if (now < wavePauseUntil) return;
+
+    let winding = opponents.some(function (o) { return o.alive && o.windup > 0; });
+
+    for (let i = 0; i < opponents.length; i++) {
+      const o = opponents[i];
+      if (!o.alive) continue;
+
+      const dx = player.x - o.x;
+      const dy = player.y - o.y;
+      const d = Math.hypot(dx, dy) || 1;
+      o.look.x = dx / d;
+      o.look.y = dy / d;
+
+      if (o.windup > 0) {
+        o.windup -= dtMs;
+        if (o.windup <= 0) {
+          o.windup = 0;
+          throwEnemyBall(o);
+          o.timer = Math.max(900, 2100 + Math.random() * 1500 - wave * 90);
+        }
+        continue;
+      }
+
+      o.timer -= dtMs;
+      if (o.timer <= 0 && !winding && now >= nextThrowAt) {
+        o.windup = 620;
+        winding = true;
+      }
+    }
+  }
+
+  function throwEnemyBall(o) {
+    const dx = player.x - o.x;
+    const dy = player.y - (o.y + o.r);
+    const d = Math.hypot(dx, dy) || 1;
+    const speed = Math.min(6.2, 3.2 + wave * 0.28);
+    const angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.2;
+
+    balls.push({
+      x: o.x,
+      y: o.y + o.r + 8,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      r: BALL_R,
+      owner: "enemy",
+      state: "flying",
+      bounces: 0,
+      trail: [],
+    });
+
+    if (balls.length > 16) {
+      const rest = balls.findIndex(function (b) { return b.state === "rest"; });
+      if (rest >= 0) balls.splice(rest, 1);
+    }
+
+    nextThrowAt = performance.now() + Math.max(420, 760 - wave * 45);
+    burst(o.x, o.y + o.r + 6, C.c1, 5, 2.5);
+    playThrow();
+  }
+
+  function updateBalls(dt) {
+    for (let i = balls.length - 1; i >= 0; i--) {
+      const b = balls[i];
+
+      // A ball resting on the floor can be picked up by walking over it.
+      if (b.state === "rest") {
+        if (!player.held && dist(b, player) < PLAYER_R + b.r + 10) {
+          balls.splice(i, 1);
+          player.held = 1;
+          addFloater(player.x, player.y - 42, "GOT IT!", C.c4, 24);
+          playPickup();
+          updateHUD();
+        }
+        continue;
+      }
+
+      if (!b.trail) b.trail = [];
+      b.trail.push({ x: b.x, y: b.y });
+      if (b.trail.length > 6) b.trail.shift();
+
+      // A thrown ball hits an opponent.
+      if (b.owner === "player") {
+        let hit = false;
+        for (let j = 0; j < opponents.length; j++) {
+          const o = opponents[j];
+          if (!o.alive) continue;
+          if (dist(b, o) < b.r + o.r) {
+            o.alive = false;
+            score += 15;
+            burst(o.x, o.y, o.jersey, 20, 5);
+            addFloater(o.x, o.y - 38, "OUT! +15", C.c2, 26);
+            playKnockout();
+            hit = true;
+            updateHUD();
+            break;
+          }
+        }
+        if (hit) {
+          balls.splice(i, 1);
+          continue;
+        }
+      }
+
+      // An enemy ball hits the player.
+      if (b.owner === "enemy" && invincible <= 0 && dist(b, player) < b.r + PLAYER_R + 2) {
+        balls.splice(i, 1);
+        hitPlayer();
+        if (over) return;
+        continue;
+      }
+
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+
+      if (b.owner === "player") {
+        // Thrown balls that somehow miss just leave the court.
+        if (b.y - b.r < COURT.top || b.x < COURT.left - 20 || b.x > COURT.right + 20) {
+          balls.splice(i, 1);
+          continue;
+        }
+      } else {
+        if (b.x - b.r < COURT.left) {
+          b.x = COURT.left + b.r;
+          b.vx = Math.abs(b.vx) * 0.92;
+          b.bounces++;
+          bounceFx(b);
+        } else if (b.x + b.r > COURT.right) {
+          b.x = COURT.right - b.r;
+          b.vx = -Math.abs(b.vx) * 0.92;
+          b.bounces++;
+          bounceFx(b);
+        }
+        if (b.y - b.r < COURT.top) {
+          b.y = COURT.top + b.r;
+          b.vy = Math.abs(b.vy) * 0.92;
+          b.bounces++;
+          bounceFx(b);
+        } else if (b.y + b.r > COURT.bottom) {
+          b.y = COURT.bottom - b.r;
+          b.vy = -Math.abs(b.vy) * 0.92;
+          b.bounces++;
+          bounceFx(b);
+        }
+      }
+
+      const speed = Math.hypot(b.vx, b.vy);
+      if (speed < 0.85 || b.bounces > 4) {
+        b.state = "rest";
+        b.vx = 0;
+        b.vy = 0;
+        b.trail = [];
+      }
+    }
+  }
+
+  function hitPlayer() {
+    hearts--;
+    invincible = 1400;
+    shake = 280;
+    burst(player.x, player.y, C.c1, 22, 5);
+    addFloater(player.x, player.y - 50, "OUCH!", C.c1, 30);
+    playHurt();
+    updateHUD();
+    if (hearts <= 0) endGame();
+  }
+
+  function endGame() {
+    over = true;
+    running = false;
+    pointer.active = false;
+    keys.up = keys.down = keys.left = keys.right = false;
+    if (score > best) {
+      best = score;
+      saveBest();
+    }
+    goScoreEl.textContent = score;
+    goWaveEl.textContent = wave;
+    goBestEl.textContent = best;
+    updateHUD();
+    gameoverEl.hidden = false;
+    playGameOver();
+  }
+
+  // ── Catch and throw ────────────────────────────────────────────────
+  function doAction() {
+    ensureAudio();
+    if (!running || over) return;
+    if (player.held > 0) throwPlayerBall();
+    else attemptCatch();
+  }
+
+  function computeCanCatch() {
+    if (!running || over || !player || player.held) return null;
+    let nearest = null;
+    let nearestD = CATCH_RANGE;
+    for (let i = 0; i < balls.length; i++) {
+      const b = balls[i];
+      if (b.owner !== "enemy" || b.state !== "flying") continue;
+      const d = dist(b, player);
+      if (d < nearestD) {
+        nearestD = d;
+        nearest = b;
+      }
+    }
+    return nearest;
+  }
+
+  function attemptCatch() {
+    const b = computeCanCatch();
+    if (!b) {
+      catchFlash = 260;
+      playWhiff();
+      return;
+    }
+    const i = balls.indexOf(b);
+    if (i >= 0) balls.splice(i, 1);
+    player.held = 1;
+    score += 5;
+    catchFlash = 260;
+    burst(player.x, player.y, C.c2, 14, 4);
+    addFloater(player.x, player.y - 46, "CATCH! +5", C.c2, 28);
+    playCatch();
+    updateHUD();
+  }
+
+  function throwPlayerBall() {
+    let target = null;
+    let bestDist = Infinity;
+    for (let i = 0; i < opponents.length; i++) {
+      const o = opponents[i];
+      if (!o.alive) continue;
+      const d = dist(o, player);
+      if (d < bestDist) {
+        bestDist = d;
+        target = o;
+      }
+    }
+    if (!target) return;
+
+    const dx = target.x - player.x;
+    const dy = target.y - player.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const speed = 11;
+
+    player.held = 0;
+    throwAnim = 220;
+    balls.push({
+      x: player.x + (dx / d) * (PLAYER_R + 4),
+      y: player.y + (dy / d) * (PLAYER_R + 4),
+      vx: (dx / d) * speed,
+      vy: (dy / d) * speed,
+      r: BALL_R,
+      owner: "player",
+      state: "flying",
+      bounces: 0,
+      trail: [],
+    });
+    addFloater(player.x, player.y - 40, "THROW!", C.c4, 22);
+    playThrow();
+    updateHUD();
+  }
+
+  // ── Particles and floating words ───────────────────────────────────
+  function burst(x, y, color, count, speedMax) {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = 1 + Math.random() * (speedMax || 4);
+      const life = 380 + Math.random() * 320;
+      particles.push({
+        x: x,
+        y: y,
+        vx: Math.cos(a) * s,
+        vy: Math.sin(a) * s,
+        r: 2 + Math.random() * 3,
+        color: color,
+        life: life,
+        max: life,
+      });
+    }
+  }
+
+  function updateParticles(dtMs, dt) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= 0.95;
+      p.vy *= 0.95;
+      p.life -= dtMs;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+  }
+
+  function addFloater(x, y, text, color, size) {
+    floaters.push({ x: x, y: y, text: text, color: color, size: size || 26, life: 950, max: 950 });
+  }
+
+  function updateFloaters(dtMs) {
+    for (let i = floaters.length - 1; i >= 0; i--) {
+      const f = floaters[i];
+      f.y -= 0.55 * (dtMs / 16.6667);
+      f.life -= dtMs;
+      if (f.life <= 0) floaters.splice(i, 1);
+    }
+  }
+
+  // ── Draw ───────────────────────────────────────────────────────────
+  function draw() {
+    const now = performance.now();
+    ctx.save();
+    if (shake > 0) {
+      const s = (shake / 280) * 7;
+      ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
+    }
+
+    // warm paper + dotted grid
+    ctx.fillStyle = C.bg;
+    ctx.fillRect(-12, -12, VW + 24, VH + 24);
+    ctx.fillStyle = "rgba(42,38,34,.05)";
+    for (let y = 14; y < VH; y += 26) {
+      for (let x = 14; x < VW; x += 26) {
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+
+    // each team's half gets a colour wash
+    ctx.fillStyle = rgba(C.c1, 0.05);
+    ctx.fillRect(COURT.left, COURT.top, COURT.right - COURT.left, LINE_Y - COURT.top);
+    ctx.fillStyle = rgba(C.c4, 0.06);
+    ctx.fillRect(COURT.left, LINE_Y, COURT.right - COURT.left, COURT.bottom - LINE_Y);
+
+    // court outline
+    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = 3;
+    roundRect(COURT.left, COURT.top, COURT.right - COURT.left, COURT.bottom - COURT.top, 18);
+    ctx.stroke();
+
+    // court lines, clipped to the rounded court
+    ctx.save();
+    roundRect(COURT.left, COURT.top, COURT.right - COURT.left, COURT.bottom - COURT.top, 18);
+    ctx.clip();
+    ctx.strokeStyle = rgba(C.ink, 0.42);
+    ctx.lineWidth = 3;
+    ctx.setLineDash([14, 10]);
+    ctx.beginPath();
+    ctx.moveTo(COURT.left, LINE_Y);
+    ctx.lineTo(COURT.right, LINE_Y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = rgba(C.ink, 0.25);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(VW / 2, LINE_Y, 54, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = rgba(C.ink, 0.12);
+    ctx.beginPath();
+    ctx.arc(VW / 2, LINE_Y, 96, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // floor labels
+    ctx.fillStyle = rgba(C.ink, 0.18);
+    ctx.font = "600 12px 'DM Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("THE OTHER TEAM", VW / 2, COURT.top + 24);
+    ctx.fillText("YOUR SIDE", VW / 2, COURT.bottom - 14);
+
+    if (player.held && !over) drawAimLine(now);
+
+    // knocked-out opponents sit behind the standing ones
+    for (let i = 0; i < opponents.length; i++) {
+      if (!opponents[i].alive) drawOpponent(opponents[i], now);
+    }
+    for (let i = 0; i < opponents.length; i++) {
+      if (opponents[i].alive) drawOpponent(opponents[i], now);
+    }
+
+    drawPlayer(now);
+    for (let i = 0; i < balls.length; i++) drawBall(balls[i]);
+    drawParticles();
+    drawFloaters();
+
+    if (catchFlash > 0) {
+      const t = 1 - catchFlash / 260;
+      ctx.strokeStyle = rgba(C.c2, Math.max(0, 1 - t));
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, PLAYER_R + 8 + t * 46, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function drawAimLine(now) {
+    let target = null;
+    let bestDist = Infinity;
+    for (let i = 0; i < opponents.length; i++) {
+      const o = opponents[i];
+      if (!o.alive) continue;
+      const d = dist(o, player);
+      if (d < bestDist) {
+        bestDist = d;
+        target = o;
+      }
+    }
+    if (!target) return;
+
+    ctx.save();
+    ctx.strokeStyle = rgba(C.c4, 0.6);
+    ctx.lineWidth = 3;
+    ctx.setLineDash([10, 8]);
+    ctx.lineDashOffset = -(now / 45) % 18;
+    ctx.beginPath();
+    ctx.moveTo(player.x, player.y - 4);
+    ctx.lineTo(target.x, target.y);
+    ctx.stroke();
+    ctx.restore();
+
+    const pulse = 1 + Math.sin(now / 150) * 0.12;
+    ctx.strokeStyle = C.c2;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(target.x, target.y, target.r + 8 * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  function drawPlayer(now) {
+    if (over) {
+      drawKid(player.x, player.y + 6, PLAYER_R, rgba(C.c4, 0.4), { ko: true, look: { x: 0, y: 0.3 } });
+      return;
+    }
+    if (invincible > 0 && Math.floor(now / 90) % 2 === 0) return;
+
+    if (canCatchBall) {
+      const pulse = 1 + Math.sin(now / 140) * 0.07;
+      ctx.fillStyle = rgba(C.c2, 0.10);
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, CATCH_RANGE, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = rgba(C.c2, 0.95);
+      ctx.lineWidth = 3;
+      ctx.setLineDash([8, 7]);
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, CATCH_RANGE * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = C.ink;
+      ctx.font = "700 13px 'Fredoka', system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("SPACE!", player.x, player.y - PLAYER_R - 22);
+    }
+
+    let look = player.face;
+    if (canCatchBall) {
+      const dx = canCatchBall.x - player.x;
+      const dy = canCatchBall.y - player.y;
+      const d = Math.hypot(dx, dy) || 1;
+      look = { x: dx / d, y: dy / d };
+    }
+
+    drawKid(player.x, player.y, PLAYER_R, C.c4, {
+      look: look,
+      held: player.held,
+      throwing: throwAnim > 0,
+      headband: C.c2,
+    });
+  }
+
+  function drawOpponent(o, now) {
+    if (!o.alive) {
+      ctx.save();
+      ctx.globalAlpha = 0.65;
+      drawKid(o.x, o.y + 10, o.r, rgba(C.ink, 0.22), { ko: true, look: { x: 0, y: 0.3 } });
+      ctx.restore();
+      for (let i = 0; i < 3; i++) {
+        const ang = now / 600 + (i * Math.PI * 2) / 3;
+        ctx.fillStyle = C.c2;
+        ctx.beginPath();
+        ctx.arc(o.x + Math.cos(ang) * 17, o.y - 18 + Math.sin(ang) * 6, 2.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      return;
+    }
+
+    let squash = 1;
+    if (o.windup > 0) {
+      const t = 1 - o.windup / 620;
+      squash = 1 + Math.sin(t * Math.PI * 5) * 0.06;
+    }
+    ctx.save();
+    ctx.translate(o.x, o.y);
+    ctx.scale(1 / squash, squash);
+    ctx.translate(-o.x, -o.y);
+    drawKid(o.x, o.y, o.r, o.jersey, { look: o.look, angry: true });
+    ctx.restore();
+
+    if (o.windup > 0) {
+      const by = o.y - o.r - 30 + Math.sin(now / 90) * 2;
+      ctx.fillStyle = C.surface;
+      ctx.strokeStyle = C.ink;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(o.x, by, 13, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = C.c1;
+      ctx.font = "700 18px 'Fredoka', system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("!", o.x, by + 1);
+      ctx.textBaseline = "alphabetic";
+    }
+  }
+
+  function drawKid(x, y, r, jersey, opts) {
+    opts = opts || {};
+    const look = opts.look || { x: 0, y: 0.35 };
+
+    // floor shadow
+    ctx.fillStyle = "rgba(42,38,34,.12)";
+    ctx.beginPath();
+    ctx.ellipse(x, y + r * 0.95, r * 0.92, r * 0.3, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // hands
+    ctx.fillStyle = C.surface;
+    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(x - r * 1.02, y + (opts.throwing ? -3 : 3), 5.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x + r * 1.02, y + (opts.throwing ? -7 : 3), 5.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // jersey
+    ctx.fillStyle = jersey;
+    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // face
+    const fr = r * 0.68;
+    const fx = x;
+    const fy = y - r * 0.08;
+    ctx.fillStyle = C.surface;
+    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(fx, fy, fr, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    if (opts.headband) {
+      ctx.strokeStyle = opts.headband;
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(fx, fy, fr - 2.5, Math.PI * 1.08, Math.PI * 1.92);
+      ctx.stroke();
+    }
+
+    if (opts.angry) {
+      ctx.strokeStyle = C.ink;
+      ctx.lineWidth = 2.2;
+      const eY = fy - fr * 0.45;
+      ctx.beginPath();
+      ctx.moveTo(fx - fr * 0.64, eY - 2);
+      ctx.lineTo(fx - fr * 0.26, eY + 1.5);
+      ctx.moveTo(fx + fr * 0.64, eY - 2);
+      ctx.lineTo(fx + fr * 0.26, eY + 1.5);
+      ctx.stroke();
+    }
+
+    const eyeY = fy - fr * 0.08;
+    const eyeDX = fr * 0.36;
+    drawEye(fx - eyeDX, eyeY, look, opts.ko);
+    drawEye(fx + eyeDX, eyeY, look, opts.ko);
+
+    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    if (opts.ko) {
+      ctx.arc(fx, fy + fr * 0.4, 4, 0, Math.PI * 2);
+    } else if (opts.angry) {
+      ctx.moveTo(fx - 6, fy + fr * 0.44);
+      ctx.lineTo(fx + 6, fy + fr * 0.44);
+    } else {
+      ctx.arc(fx, fy + fr * 0.26, 5.5, 0.15 * Math.PI, 0.85 * Math.PI);
+    }
+    ctx.stroke();
+
+    if (opts.held) {
+      const hx = x + r * 1.2;
+      const hy = y + r * 0.38;
+      ctx.fillStyle = C.c2;
+      ctx.strokeStyle = C.ink;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(hx, hy, 7.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,.6)";
+      ctx.beginPath();
+      ctx.arc(hx - 2.5, hy - 2.5, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawEye(x, y, look, ko) {
+    if (ko) {
+      drawX(x, y, 4.5);
+      return;
+    }
+    ctx.fillStyle = C.surface;
+    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, 4.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    const px = clamp(look.x * 2.2, -1.8, 1.8);
+    const py = clamp(look.y * 2.2, -1.8, 1.8);
+    ctx.fillStyle = C.ink;
+    ctx.beginPath();
+    ctx.arc(x + px, y + py, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawX(x, y, s) {
+    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(x - s, y - s);
+    ctx.lineTo(x + s, y + s);
+    ctx.moveTo(x + s, y - s);
+    ctx.lineTo(x - s, y + s);
+    ctx.stroke();
+  }
+
+  function drawBall(b) {
+    if (b.state === "flying" && b.trail) {
+      for (let i = 0; i < b.trail.length; i++) {
+        const t = b.trail[i];
+        const a = ((i + 1) / b.trail.length) * 0.16;
+        ctx.fillStyle = rgba(b.owner === "enemy" ? C.c1 : C.c2, a);
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, b.r * (0.35 + (0.55 * i) / b.trail.length), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    if (b.state === "rest") {
+      const pulse = 1 + Math.sin(performance.now() / 230 + b.x) * 0.08;
+      ctx.strokeStyle = rgba(C.ink, 0.25);
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, (b.r + 7) * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    ctx.fillStyle = b.owner === "enemy" ? C.c1 : C.c2;
+    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = rgba(C.ink, 0.32);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(b.x - b.r * 0.3, b.y, b.r * 0.82, -0.7, 0.7);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(b.x + b.r * 0.3, b.y, b.r * 0.82, Math.PI - 0.7, Math.PI + 0.7);
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(255,255,255,.55)";
+    ctx.beginPath();
+    ctx.arc(b.x - b.r * 0.35, b.y - b.r * 0.38, b.r * 0.28, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawParticles() {
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      ctx.globalAlpha = Math.max(0, Math.min(1, p.life / p.max));
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawFloaters() {
+    ctx.textAlign = "center";
+    for (let i = 0; i < floaters.length; i++) {
+      const f = floaters[i];
+      ctx.globalAlpha = Math.min(1, f.life / 350);
+      ctx.font = "700 " + f.size + "px 'Fredoka', system-ui, sans-serif";
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = "rgba(255,255,255,.92)";
+      ctx.strokeText(f.text, f.x, f.y);
+      ctx.fillStyle = f.color;
+      ctx.fillText(f.text, f.x, f.y);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────
+  function dist(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+  function clamp(v, lo, hi) {
+    return v < lo ? lo : v > hi ? hi : v;
+  }
+  function bounceFx(b) {
+    burst(b.x, b.y, b.owner === "enemy" ? C.c1 : C.c2, 3, 2);
+  }
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // ── Input ──────────────────────────────────────────────────────────
+  document.addEventListener("keydown", function (e) {
+    const k = e.key.toLowerCase();
+    const isGameKey =
+      ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright", " ", "enter"].indexOf(k) >= 0;
+    if (isGameKey) e.preventDefault();
+
+    if (!started) {
+      if (k === " " || k === "enter") startGame();
+      return;
+    }
+    if (over) {
+      if (k === " " || k === "enter") startGame();
+      return;
+    }
+
+    if (k === "w" || k === "arrowup") { keys.up = true; pointer.active = false; }
+    if (k === "s" || k === "arrowdown") { keys.down = true; pointer.active = false; }
+    if (k === "a" || k === "arrowleft") { keys.left = true; pointer.active = false; }
+    if (k === "d" || k === "arrowright") { keys.right = true; pointer.active = false; }
+    if (k === " " && !e.repeat) doAction();
+    if (k === "r") startGame();
+  });
+
+  document.addEventListener("keyup", function (e) {
+    const k = e.key.toLowerCase();
+    if (k === "w" || k === "arrowup") keys.up = false;
+    if (k === "s" || k === "arrowdown") keys.down = false;
+    if (k === "a" || k === "arrowleft") keys.left = false;
+    if (k === "d" || k === "arrowright") keys.right = false;
+  });
+
+  function pointerPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: clamp(((e.clientX - rect.left) / rect.width) * VW, 0, VW),
+      y: clamp(((e.clientY - rect.top) / rect.height) * VH, 0, VH),
+    };
+  }
+
+  canvas.addEventListener("pointerdown", function (e) {
+    if (!running || over) return;
+    e.preventDefault();
+    ensureAudio();
+    pointer.active = true;
+    const p = pointerPos(e);
+    pointer.x = p.x;
+    pointer.y = p.y;
+    if (canvas.setPointerCapture) {
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* not fatal */ }
+    }
+  });
+
+  canvas.addEventListener("pointermove", function (e) {
+    if (!pointer.active) return;
+    e.preventDefault();
+    const p = pointerPos(e);
+    pointer.x = p.x;
+    pointer.y = p.y;
+  });
+
+  ["pointerup", "pointercancel"].forEach(function (name) {
+    canvas.addEventListener(name, function (e) {
+      pointer.active = false;
+      e.preventDefault();
+    });
+  });
+
+  // ── Main loop ──────────────────────────────────────────────────────
+  let lastNow = 0;
+  let frameErrors = 0;
+
+  function loop(now) {
+    // Re-arm first: one bad frame must never freeze the game.
+    requestAnimationFrame(loop);
+    if (!lastNow) lastNow = now;
+    const dtMs = Math.min(64, now - lastNow);
+    lastNow = now;
+    const dt = Math.min(2.5, dtMs / 16.6667);
+    try {
+      if (running && !over) update(dtMs, dt);
+      draw();
+    } catch (err) {
+      if (frameErrors++ < 5) console.error("skipped a bad frame:", err);
+    }
+  }
+
+  // ── Wire up ────────────────────────────────────────────────────────
+  document.getElementById("start-btn").addEventListener("click", startGame);
+  document.getElementById("play-again").addEventListener("click", startGame);
+  document.getElementById("restart").addEventListener("click", startGame);
+  actionBtn.addEventListener("click", doAction);
+  soundBtn.addEventListener("click", toggleSound);
+
+  initPreview();
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>
