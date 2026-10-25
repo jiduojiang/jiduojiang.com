@@ -195,6 +195,52 @@
     margin-bottom: 2px;
   }
 
+  .team-pick {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    background: var(--surface);
+    border: 2px solid var(--ink);
+    border-radius: var(--r-pill);
+    padding: 3px 5px 3px 12px;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  .team-pick--overlay { margin-top: 14px; }
+  .team-pick__label {
+    font-family: var(--f-display);
+    font-size: var(--t-sm);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .team-pick__buttons { display: flex; gap: 3px; }
+  .team-pick__buttons button {
+    appearance: none;
+    border: 2px solid transparent;
+    background: transparent;
+    font-family: var(--f-display);
+    font-size: var(--t-sm);
+    font-weight: 600;
+    color: var(--ink-soft);
+    width: 30px;
+    height: 27px;
+    border-radius: var(--r-pill);
+    cursor: pointer;
+    padding: 0;
+  }
+  .team-pick__buttons button.is-active {
+    background: var(--crayon);
+    border-color: var(--ink);
+    color: var(--ink);
+    box-shadow: 1px 1px 0 var(--ink);
+  }
+  .overlay__note {
+    margin-top: 8px;
+    font-size: var(--t-xs);
+    color: var(--ink-soft);
+    line-height: 1.4;
+  }
+
   @keyframes pop {
     from { transform: scale(.78); opacity: 0; }
     to   { transform: scale(1);   opacity: 1; }
@@ -350,6 +396,16 @@
                   <span class="emo">🏐</span><b>Throw</b><span>Press Space again. Aim is automatic!</span>
                 </div>
               </div>
+              <div class="team-pick team-pick--overlay">
+                <span class="team-pick__label">👫 Teammates</span>
+                <div class="team-pick__buttons" role="group" aria-label="Number of teammates">
+                  <button type="button" data-team="2">2</button>
+                  <button type="button" data-team="3">3</button>
+                  <button type="button" data-team="4">4</button>
+                  <button type="button" data-team="5">5</button>
+                </div>
+              </div>
+              <p class="overlay__note">Your friends pick up loose balls and throw them back!</p>
               <button class="btn btn--primary" id="start-btn" type="button">Let's play! 🥎</button>
             </div>
           </div>
@@ -380,6 +436,19 @@
             <span><b>R</b> restart</span>
           </div>
           <p class="panel__note">On a tablet: drag to move, then tap the big button to catch and throw.</p>
+        </div>
+        <div class="panel">
+          <h4>👫 Teammates</h4>
+          <div class="team-pick">
+            <span class="team-pick__label">Friends</span>
+            <div class="team-pick__buttons" role="group" aria-label="Number of teammates">
+              <button type="button" data-team="2">2</button>
+              <button type="button" data-team="3">3</button>
+              <button type="button" data-team="4">4</button>
+              <button type="button" data-team="5">5</button>
+            </div>
+          </div>
+          <p class="panel__note">Pick 2 to 5 friends. They pick up loose balls and throw them back. If they get hit, they rest for a moment.</p>
         </div>
         <div class="panel">
           <h4>⭐ Points</h4>
@@ -439,6 +508,8 @@
   const BALL_R = 11;
   const CATCH_RANGE = 82;
   const MAX_HEARTS = 3;
+  const TEAM_MIN = 2;
+  const TEAM_MAX = 5;
   const PLAYER_SPEED = 4.6;
   const PLAYER_MIN_X = COURT.left + PLAYER_R + 4;
   const PLAYER_MAX_X = COURT.right - PLAYER_R - 4;
@@ -463,7 +534,7 @@
   const soundBtn = document.getElementById("sound-btn");
 
   // ── State ──────────────────────────────────────────────────────────
-  let player, opponents, balls, particles, floaters;
+  let player, teammates, opponents, balls, particles, floaters;
   let score = 0, hearts = MAX_HEARTS, wave = 1;
   let running = false, over = false, started = false;
   let invincible = 0, shake = 0, throwAnim = 0, catchFlash = 0;
@@ -476,6 +547,7 @@
   const pointer = { active: false, x: 0, y: 0 };
   let best = loadNumber("dodgeball.best", 0);
   let soundOn = loadSound();
+  let teamSize = loadTeamSize();
 
   // ── Saved bits ─────────────────────────────────────────────────────
   function loadNumber(key, fallback) {
@@ -497,6 +569,26 @@
   function saveBest() {
     try { localStorage.setItem("dodgeball.best", String(best)); }
     catch (err) { /* private mode — the score still shows this visit */ }
+  }
+  function loadTeamSize() {
+    try {
+      const n = Number(localStorage.getItem("dodgeball.team"));
+      if (Number.isFinite(n) && n >= TEAM_MIN && n <= TEAM_MAX) return Math.round(n);
+    } catch (err) { /* fall through to the default */ }
+    return 2;
+  }
+  function saveTeamSize() {
+    try { localStorage.setItem("dodgeball.team", String(teamSize)); }
+    catch (err) { /* private mode — the team still works this visit */ }
+  }
+  function syncTeamButtons() {
+    const buttons = document.querySelectorAll("[data-team]");
+    for (let i = 0; i < buttons.length; i++) {
+      const n = Number(buttons[i].dataset.team);
+      const active = n === teamSize;
+      buttons[i].classList.toggle("is-active", active);
+      buttons[i].setAttribute("aria-pressed", active ? "true" : "false");
+    }
   }
 
   // ── Tiny synthesised sound effects ─────────────────────────────────
@@ -551,6 +643,7 @@
     beep(720, 0.12, "sine", 0.035, null, 0.09);
   }
   function playHurt() { beep(170, 0.22, "sawtooth", 0.04, 80); }
+  function playFriendDown() { beep(240, 0.16, "triangle", 0.025, 110); }
   function playWhiff() { beep(190, 0.05, "sine", 0.018); }
   function playWaveClear() {
     beep(523, 0.1, "sine", 0.035);
@@ -609,9 +702,38 @@
     return list;
   }
 
+  const TEAM_HEADBANDS = [C.c3, C.c6, C.c5, C.c1, C.c2];
+
+  function makeTeammates(count) {
+    const n = clamp(Math.round(count), TEAM_MIN, TEAM_MAX);
+    const list = [];
+    const left = COURT.left + 50;
+    const right = COURT.right - 50;
+    for (let i = 0; i < n; i++) {
+      const t = n === 1 ? 0.5 : i / (n - 1);
+      const homeX = left + t * (right - left);
+      const homeY = 528 + (i % 2 === 0 ? 0 : 12);
+      list.push({
+        x: homeX,
+        y: homeY,
+        homeX: homeX,
+        homeY: homeY,
+        r: 19,
+        held: 0,
+        down: 0,
+        throwTimer: 0,
+        catchCd: 0,
+        headband: TEAM_HEADBANDS[i % TEAM_HEADBANDS.length],
+        look: { x: 0, y: -1 },
+      });
+    }
+    return list;
+  }
+
   function startNextWave(first) {
     wave++;
     opponents = makeOpponents(wave);
+    teammates = makeTeammates(teamSize);
     balls = [];
     particles = [];
     floaters = [];
@@ -703,6 +825,7 @@
 
   function initPreview() {
     player = { x: VW / 2, y: 496, held: 0, face: { x: 0, y: -1 } };
+    teammates = makeTeammates(teamSize);
     opponents = makeOpponents(1);
     balls = [];
     particles = [];
@@ -715,6 +838,7 @@
     started = false;
     startOverlay.hidden = false;
     gameoverEl.hidden = true;
+    syncTeamButtons();
     updateHUD();
     updateSoundButton();
   }
@@ -729,6 +853,7 @@
     if (catchFlash > 0) catchFlash = Math.max(0, catchFlash - dtMs);
 
     updatePlayer(dt);
+    updateTeammates(dtMs, dt);
     updateOpponents(dtMs, performance.now());
     updateBalls(dt);
     if (over) return;
@@ -778,6 +903,202 @@
     player.y = clamp(player.y, PLAYER_MIN_Y, PLAYER_MAX_Y);
   }
 
+  function updateTeammates(dtMs, dt) {
+    // Respawn friends who were knocked down.
+    for (let i = 0; i < teammates.length; i++) {
+      const t = teammates[i];
+      if (t.down > 0) {
+        t.down -= dtMs;
+        if (t.down <= 0) {
+          t.down = 0;
+          t.x = t.homeX;
+          t.y = t.homeY;
+          t.held = 0;
+          t.catchCd = 1200;
+          addFloater(t.x, t.y - 36, "I'M BACK!", C.c4, 20);
+        }
+        continue;
+      }
+      if (t.catchCd > 0) t.catchCd -= dtMs;
+    }
+
+    // Each loose ball belongs to at most one friend, so they don't all pile up.
+    const claimed = [];
+
+    for (let i = 0; i < teammates.length; i++) {
+      const t = teammates[i];
+      if (t.down > 0) continue;
+
+      // Snag a ball that flies close.
+      if (!t.held && t.catchCd <= 0) {
+        let caught = null;
+        for (let j = 0; j < balls.length; j++) {
+          const b = balls[j];
+          if (b.owner !== "enemy" || b.state !== "flying") continue;
+          // Let the player have first claim on balls inside their catch ring.
+          if (dist(b, t) < 46 && dist(b, t) < dist(b, player) - 8) {
+            caught = b;
+            break;
+          }
+        }
+        if (caught) {
+          const k = balls.indexOf(caught);
+          if (k >= 0) balls.splice(k, 1);
+          t.held = 1;
+          t.throwTimer = 500 + Math.random() * 600;
+          t.catchCd = 1600;
+          burst(t.x, t.y, C.c2, 8, 3);
+          addFloater(t.x, t.y - 36, "GOT IT!", C.c4, 20);
+          playPickup();
+          continue;
+        }
+      }
+
+      if (t.held) {
+        t.throwTimer -= dtMs;
+        if (t.throwTimer <= 0) {
+          if (throwTeammateBall(t)) {
+            t.held = 0;
+            t.catchCd = Math.max(t.catchCd, 900);
+          } else {
+            t.throwTimer = 500;
+          }
+        } else {
+          moveTeammateToward(t, t.homeX, t.homeY, dt, 1.9);
+        }
+        continue;
+      }
+
+      // Chase a loose ball on our side of the court.
+      let target = null;
+      let bestD = Infinity;
+      for (let j = 0; j < balls.length; j++) {
+        const b = balls[j];
+        if (b.owner !== "enemy" || b.state !== "rest") continue;
+        if (b.y < LINE_Y + 12) continue;
+        if (claimed.indexOf(b) >= 0) continue;
+        const d = dist(b, t);
+        if (d < bestD) { bestD = d; target = b; }
+      }
+
+      if (target) {
+        claimed.push(target);
+        moveTeammateToward(t, target.x, target.y, dt, 2.7);
+        if (dist(target, t) < t.r + target.r + 4) {
+          const k = balls.indexOf(target);
+          if (k >= 0) balls.splice(k, 1);
+          t.held = 1;
+          t.throwTimer = 500 + Math.random() * 700;
+          burst(t.x, t.y, C.c2, 6, 2.5);
+          playPickup();
+        }
+      } else {
+        moveTeammateToward(t, t.homeX, t.homeY, dt, 2.1);
+      }
+    }
+
+    separateTeammates();
+  }
+
+  function moveTeammateToward(t, tx, ty, dt, speed) {
+    const dx = tx - t.x;
+    const dy = ty - t.y;
+    const d = Math.hypot(dx, dy);
+    if (d > 3) {
+      const step = Math.min(d, speed * dt);
+      t.x += (dx / d) * step;
+      t.y += (dy / d) * step;
+      t.look.x = dx / d;
+      t.look.y = dy / d;
+    }
+    t.x = clamp(t.x, COURT.left + t.r + 4, COURT.right - t.r - 4);
+    t.y = clamp(t.y, LINE_Y + t.r + 10, COURT.bottom - t.r - 8);
+  }
+
+  function separateTeammates() {
+    for (let i = 0; i < teammates.length; i++) {
+      const t = teammates[i];
+      if (t.down > 0) continue;
+
+      // Friends step aside for the player rather than pushing them around.
+      const pdx = t.x - player.x;
+      const pdy = t.y - player.y;
+      const pd = Math.hypot(pdx, pdy);
+      const pmin = t.r + PLAYER_R + 2;
+      if (pd > 0.01 && pd < pmin) {
+        const push = pmin - pd;
+        t.x += (pdx / pd) * push;
+        t.y += (pdy / pd) * push;
+      }
+
+      for (let j = i + 1; j < teammates.length; j++) {
+        const u = teammates[j];
+        if (u.down > 0) continue;
+        const dx = u.x - t.x;
+        const dy = u.y - t.y;
+        const d = Math.hypot(dx, dy);
+        const min = t.r + u.r + 2;
+        if (d > 0.01 && d < min) {
+          const push = (min - d) / 2;
+          t.x -= (dx / d) * push;
+          t.y -= (dy / d) * push;
+          u.x += (dx / d) * push;
+          u.y += (dy / d) * push;
+        }
+      }
+    }
+
+    for (let i = 0; i < teammates.length; i++) {
+      const t = teammates[i];
+      if (t.down > 0) continue;
+      t.x = clamp(t.x, COURT.left + t.r + 4, COURT.right - t.r - 4);
+      t.y = clamp(t.y, LINE_Y + t.r + 10, COURT.bottom - t.r - 8);
+    }
+  }
+
+  function throwTeammateBall(t) {
+    let target = null;
+    let bestD = Infinity;
+    for (let i = 0; i < opponents.length; i++) {
+      const o = opponents[i];
+      if (!o.alive) continue;
+      const d = dist(o, t);
+      if (d < bestD) { bestD = d; target = o; }
+    }
+    if (!target) return false;
+
+    const dx = target.x - t.x;
+    const dy = target.y - t.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const speed = 9.5;
+    balls.push({
+      x: t.x + (dx / d) * (t.r + 4),
+      y: t.y + (dy / d) * (t.r + 4),
+      vx: (dx / d) * speed,
+      vy: (dy / d) * speed,
+      r: BALL_R,
+      owner: "team",
+      state: "flying",
+      bounces: 0,
+      trail: [],
+    });
+    burst(t.x, t.y - 6, C.c4, 5, 2.5);
+    playThrow();
+    return true;
+  }
+
+  function knockTeammateDown(t) {
+    if (t.down > 0) return;
+    t.down = 4200;
+    t.held = 0;
+    t.throwTimer = 0;
+    t.catchCd = 0;
+    burst(t.x, t.y, C.c1, 12, 4);
+    addFloater(t.x, t.y - 36, "OOF!", C.c1, 22);
+    playFriendDown();
+    shake = Math.max(shake, 110);
+  }
+
   function updateOpponents(dtMs, now) {
     if (now < wavePauseUntil) return;
 
@@ -812,8 +1133,15 @@
   }
 
   function throwEnemyBall(o) {
-    const dx = player.x - o.x;
-    const dy = player.y - (o.y + o.r);
+    // Mix it up: sometimes the other team throws at a teammate, not only you.
+    const friends = teammates.filter(function (t) { return t.down <= 0; });
+    let target = player;
+    if (friends.length > 0 && Math.random() < 0.45) {
+      target = friends[Math.floor(Math.random() * friends.length)];
+    }
+
+    const dx = target.x - o.x;
+    const dy = target.y - (o.y + o.r);
     const d = Math.hypot(dx, dy) || 1;
     const speed = Math.min(6.2, 3.2 + wave * 0.28);
     const angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.2;
@@ -861,7 +1189,7 @@
       if (b.trail.length > 6) b.trail.shift();
 
       // A thrown ball hits an opponent.
-      if (b.owner === "player") {
+      if (b.owner !== "enemy") {
         let hit = false;
         for (let j = 0; j < opponents.length; j++) {
           const o = opponents[j];
@@ -891,10 +1219,28 @@
         continue;
       }
 
+      // An enemy ball hits a teammate.
+      if (b.owner === "enemy") {
+        let friendHit = null;
+        for (let j = 0; j < teammates.length; j++) {
+          const t = teammates[j];
+          if (t.down > 0) continue;
+          if (dist(b, t) < b.r + t.r + 2) {
+            friendHit = t;
+            break;
+          }
+        }
+        if (friendHit) {
+          balls.splice(i, 1);
+          knockTeammateDown(friendHit);
+          continue;
+        }
+      }
+
       b.x += b.vx * dt;
       b.y += b.vy * dt;
 
-      if (b.owner === "player") {
+      if (b.owner !== "enemy") {
         // Thrown balls that somehow miss just leave the court.
         if (b.y - b.r < COURT.top || b.x < COURT.left - 20 || b.x > COURT.right + 20) {
           balls.splice(i, 1);
@@ -1157,6 +1503,13 @@
       if (opponents[i].alive) drawOpponent(opponents[i], now);
     }
 
+    for (let i = 0; i < teammates.length; i++) {
+      if (teammates[i].down > 0) drawTeammate(teammates[i], now);
+    }
+    for (let i = 0; i < teammates.length; i++) {
+      if (teammates[i].down <= 0) drawTeammate(teammates[i], now);
+    }
+
     drawPlayer(now);
     for (let i = 0; i < balls.length; i++) drawBall(balls[i]);
     drawParticles();
@@ -1230,7 +1583,7 @@
       ctx.fillStyle = C.ink;
       ctx.font = "700 13px 'Fredoka', system-ui, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("SPACE!", player.x, player.y - PLAYER_R - 22);
+      ctx.fillText("SPACE!", player.x, player.y - PLAYER_R - 34);
     }
 
     let look = player.face;
@@ -1247,6 +1600,47 @@
       throwing: throwAnim > 0,
       headband: C.c2,
     });
+    drawYouTag(player.x, player.y - PLAYER_R - 13);
+  }
+
+  function drawTeammate(t, now) {
+    if (t.down > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.62;
+      drawKid(t.x, t.y + 8, t.r, rgba(C.c4, 0.5), { ko: true, look: { x: 0, y: 0.3 } });
+      ctx.restore();
+      for (let i = 0; i < 3; i++) {
+        const ang = now / 600 + (i * Math.PI * 2) / 3;
+        ctx.fillStyle = C.c2;
+        ctx.beginPath();
+        ctx.arc(t.x + Math.cos(ang) * 15, t.y - 16 + Math.sin(ang) * 5, 2.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      return;
+    }
+    drawKid(t.x, t.y, t.r, C.c4, {
+      look: t.look,
+      held: t.held,
+      headband: t.headband,
+    });
+  }
+
+  function drawYouTag(x, y) {
+    ctx.save();
+    const w = 30;
+    const h = 15;
+    ctx.fillStyle = C.c2;
+    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = 2;
+    roundRect(x - w / 2, y - h / 2, w, h, 7);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = C.ink;
+    ctx.font = "700 9px 'DM Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("YOU", x, y + 1);
+    ctx.restore();
   }
 
   function drawOpponent(o, now) {
@@ -1611,6 +2005,22 @@
   document.getElementById("restart").addEventListener("click", startGame);
   actionBtn.addEventListener("click", doAction);
   soundBtn.addEventListener("click", toggleSound);
+
+  document.querySelectorAll("[data-team]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const n = clamp(Number(btn.dataset.team), TEAM_MIN, TEAM_MAX);
+      if (n === teamSize) return;
+      teamSize = n;
+      saveTeamSize();
+      syncTeamButtons();
+      if (started) {
+        startGame();
+      } else {
+        teammates = makeTeammates(teamSize);
+        updateHUD();
+      }
+    });
+  });
 
   initPreview();
   requestAnimationFrame(loop);
