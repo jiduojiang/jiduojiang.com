@@ -1,6 +1,6 @@
 name = "jiduojiang"
 compatibility_date = "2026-05-17"
-pages_build_output_dir = "."
+pages_build_output_dir = "dist"
 
 # D1 database bindings will be appended here as individual projects need
 # persistence. Example (added automatically by Claude when needed):

@@ -14,22 +14,27 @@ That means: `git push` is for history/backup only — it does NOT deploy. You mu
 `wrangler pages deploy` to make the change visible on `jiduojiang.com`. The Cloudflare
 API token in `.env` lets wrangler do this without any human help.
 
+**Deploy `dist/`, never `.`.** Cloudflare Pages uploads every file in the directory and
+does not support ignore files. Deploying `.` would publish `.env` and the API token.
+`npm run build` creates `dist/` with only the public site.
+
 ## Checklist
 
 - [ ] **1. Show what's changing.** Run `git status` to see modified/untracked files.
       Make sure they're all things Jiduo wants to publish (no leftover experiments).
 
-- [ ] **2. Rebuild the homepage.** Run `npm run build`. Verify the output shows
-      the new project in the list:
+- [ ] **2. Rebuild the homepage and clean deploy bundle.** Run `npm run build`.
+      Verify the output shows the new project in the list, and that `dist/` exists:
 
       ```bash
       npm run build
+      test -f dist/index.html
       ```
 
       Expected output mentions the new slug under "learning thing(s)", "game(s)", or "tool(s)".
 
 - [ ] **3. Stage the right files.** Add only the project folder(s) and any
-      framework changes (don't stage `index.html` — it's gitignored). Examples:
+      framework changes (don't stage `index.html` or `dist/` — they're gitignored). Examples:
 
       ```bash
       git add games/snake/ wrangler.toml functions/games/snake/
@@ -53,8 +58,9 @@ API token in `.env` lets wrangler do this without any human help.
 
       ```bash
       set -a && source .env && set +a
+      test -f dist/index.html && test ! -e dist/.env
       CLOUDFLARE_ACCOUNT_ID=72d49af8da6f7afafc1361a02927b330 \
-        npx --yes wrangler@latest pages deploy . \
+        npx --yes wrangler@latest pages deploy dist \
           --project-name jiduojiang \
           --branch main \
           --commit-dirty=true
@@ -68,10 +74,13 @@ API token in `.env` lets wrangler do this without any human help.
 
       ```bash
       curl -sI https://jiduojiang.com/{type}/{slug}/ | head -1
+      curl -sI https://jiduojiang.com/.env | head -1
       ```
 
-      Expected: `HTTP/2 200`. May take 10-30 seconds after deploy completes for
-      the edge to update.
+      Expected: the project is `HTTP/2 200`, and `.env` is `HTTP/2 404`. If `.env`
+      still returns 200 after a new deploy, Cloudflare's asset cache is keeping the
+      old file (it can last up to a week) — rotate the API token in Cloudflare, since
+      it may already be exposed.
 
 - [ ] **8. Tell Jiduo.** Switch to Chinese if that's how you've been talking.
       Something like: "上线啦！https://jiduojiang.com/{type}/{slug}/ 可以玩了。

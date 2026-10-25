@@ -64,7 +64,9 @@ Rules:
 /games/{slug}/                 ← one folder per game
 /tools/{slug}/                 ← one folder per tool
 /functions/{type}/{slug}/      ← Cloudflare Pages Functions (only when a project needs an API)
+/dist/                         ← clean public deploy bundle (generated; gitignored)
 /scripts/build-index.mjs       ← generates /index.html from template + meta.json files
+/scripts/build-site.mjs        ← builds /index.html, then copies only public files into /dist/
 /.claude/skills/               ← workflow skills (new-project, publish)
 /wrangler.toml                 ← Cloudflare config (D1 bindings get added here when needed)
 ```
@@ -132,13 +134,18 @@ over-engineer.
 ## Deployment
 
 The Cloudflare Pages project (`jiduojiang`) is **direct-upload**, not GitHub-integrated.
-That means deploying = running `wrangler pages deploy .` (see `.claude/skills/publish/SKILL.md`
-for the exact command). Pushing to `main` does NOT trigger a deploy by itself — it's
-only for git history. The publish skill does both: git push + wrangler deploy.
+That means deploying = running `wrangler pages deploy dist` (see
+`.claude/skills/publish/SKILL.md` for the exact command). Pushing to `main` does NOT
+trigger a deploy by itself — it's only for git history. The publish skill does both:
+git push + wrangler deploy.
 
-Always run `npm run build` before deploying so `index.html` reflects the current set
-of projects. The build artifact (`/index.html`) is gitignored; the template
-(`/index.html.template`) is what's tracked.
+**Never run `wrangler pages deploy .`** Cloudflare Pages has no ignore-file support,
+so deploying the repo root publishes `.env` (and its Cloudflare API token) as a public
+file. `npm run build` creates `/dist/` containing only the public site — deploy that.
+
+Always run `npm run build` before deploying so `index.html` and `dist/` reflect the
+current set of projects. Both are gitignored; the template (`/index.html.template`) is
+what's tracked.
 
 Commit messages: short, English, present-tense: `Add snake game`, `Fix timer bell sound`,
 `Add leaderboard to snake`.

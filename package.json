@@ -5,7 +5,7 @@
   "description": "Jiduo Jiang's playground — games and tools made with Claude Code",
   "type": "module",
   "scripts": {
-    "build": "node scripts/build-index.mjs",
+    "build": "node scripts/build-site.mjs",
     "dev": "wrangler pages dev ."
   },
   "engines": {
