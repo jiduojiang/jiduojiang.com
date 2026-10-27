@@ -197,13 +197,12 @@
 
   .team-pick {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--sp-2);
+    flex-direction: column;
+    gap: 6px;
     background: var(--surface);
     border: 2px solid var(--ink);
-    border-radius: var(--r-pill);
-    padding: 3px 5px 3px 12px;
+    border-radius: var(--r-md);
+    padding: 8px;
     box-shadow: 2px 2px 0 var(--ink);
   }
   .team-pick--overlay { margin-top: 14px; }
@@ -213,18 +212,22 @@
     font-weight: 600;
     white-space: nowrap;
   }
-  .team-pick__buttons { display: flex; gap: 3px; }
+  .team-pick__buttons {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 3px;
+  }
   .team-pick__buttons button {
     appearance: none;
     border: 2px solid transparent;
-    background: transparent;
+    background: var(--bg);
     font-family: var(--f-display);
     font-size: var(--t-sm);
     font-weight: 600;
     color: var(--ink-soft);
-    width: 30px;
-    height: 27px;
-    border-radius: var(--r-pill);
+    width: 100%;
+    height: 28px;
+    border-radius: var(--r-sm);
     cursor: pointer;
     padding: 0;
   }
@@ -399,13 +402,15 @@
               <div class="team-pick team-pick--overlay">
                 <span class="team-pick__label">👫 Teammates</span>
                 <div class="team-pick__buttons" role="group" aria-label="Number of teammates">
+                  <button type="button" data-team="0">0</button>
+                  <button type="button" data-team="1">1</button>
                   <button type="button" data-team="2">2</button>
                   <button type="button" data-team="3">3</button>
                   <button type="button" data-team="4">4</button>
                   <button type="button" data-team="5">5</button>
                 </div>
               </div>
-              <p class="overlay__note">Your friends pick up loose balls and throw them back!</p>
+              <p class="overlay__note">Pick 0 to 5 friends. They pick up loose balls and throw them back!</p>
               <button class="btn btn--primary" id="start-btn" type="button">Let's play! 🥎</button>
             </div>
           </div>
@@ -442,13 +447,15 @@
           <div class="team-pick">
             <span class="team-pick__label">Friends</span>
             <div class="team-pick__buttons" role="group" aria-label="Number of teammates">
+              <button type="button" data-team="0">0</button>
+              <button type="button" data-team="1">1</button>
               <button type="button" data-team="2">2</button>
               <button type="button" data-team="3">3</button>
               <button type="button" data-team="4">4</button>
               <button type="button" data-team="5">5</button>
             </div>
           </div>
-          <p class="panel__note">Pick 2 to 5 friends. They pick up loose balls and throw them back. If they get hit, they rest for a moment.</p>
+          <p class="panel__note">Pick 0 to 5 friends any time — your game keeps going. They pick up loose balls and throw them back. If they get hit, they rest for a moment.</p>
         </div>
         <div class="panel">
           <h4>⭐ Points</h4>
@@ -508,7 +515,7 @@
   const BALL_R = 11;
   const CATCH_RANGE = 82;
   const MAX_HEARTS = 3;
-  const TEAM_MIN = 2;
+  const TEAM_MIN = 0;
   const TEAM_MAX = 5;
   const PLAYER_SPEED = 4.6;
   const PLAYER_MIN_X = COURT.left + PLAYER_R + 4;
@@ -572,8 +579,11 @@
   }
   function loadTeamSize() {
     try {
-      const n = Number(localStorage.getItem("dodgeball.team"));
-      if (Number.isFinite(n) && n >= TEAM_MIN && n <= TEAM_MAX) return Math.round(n);
+      const raw = localStorage.getItem("dodgeball.team");
+      if (raw !== null) {
+        const n = Number(raw);
+        if (Number.isFinite(n) && n >= TEAM_MIN && n <= TEAM_MAX) return Math.round(n);
+      }
     } catch (err) { /* fall through to the default */ }
     return 2;
   }
@@ -589,6 +599,18 @@
       buttons[i].classList.toggle("is-active", active);
       buttons[i].setAttribute("aria-pressed", active ? "true" : "false");
     }
+  }
+
+  // Changing the team size never restarts the run: the score, wave, hearts and
+  // player all stay put. Friends are just swapped in or out.
+  function applyTeamSize(n) {
+    const next = clamp(Math.round(n), TEAM_MIN, TEAM_MAX);
+    if (next === teamSize && started) return;
+    teamSize = next;
+    saveTeamSize();
+    syncTeamButtons();
+    teammates = makeTeammates(teamSize);
+    updateHUD();
   }
 
   // ── Tiny synthesised sound effects ─────────────────────────────────
@@ -2008,17 +2030,7 @@
 
   document.querySelectorAll("[data-team]").forEach(function (btn) {
     btn.addEventListener("click", function () {
-      const n = clamp(Number(btn.dataset.team), TEAM_MIN, TEAM_MAX);
-      if (n === teamSize) return;
-      teamSize = n;
-      saveTeamSize();
-      syncTeamButtons();
-      if (started) {
-        startGame();
-      } else {
-        teammates = makeTeammates(teamSize);
-        updateHUD();
-      }
+      applyTeamSize(Number(btn.dataset.team));
     });
   });
 
